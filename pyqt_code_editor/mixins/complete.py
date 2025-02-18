@@ -1,49 +1,22 @@
 import logging; logging.basicConfig(level=logging.INFO, force=True)
-import multiprocessing
-from queue import Empty
 from qtpy.QtCore import QTimer, Qt, QPoint
 from qtpy.QtGui import QTextCursor
 from qtpy.QtWidgets import QFrame, QLabel, QVBoxLayout
-from .completion_popup import CompletionPopup
-from .calltip_widget import CalltipWidget
-from .completion_worker import completion_worker
+from .widgets.completion_popup import CompletionPopup
+from .widgets.calltip_widget import CalltipWidget
+from ..worker import manager 
 
 logger = logging.getLogger(__name__)
 
-class CompletionMixin:
+class Complete:
     """
     A mixin providing code-completion logic, designed to be paired with
     a QPlainTextEdit (or derived) class in multiple inheritance.
-
-    Usage:
-        class MyEditor(CompletionMixin, QPlainTextEdit):
-            def __init__(self, parent=None, language='text', path=None):
-                QPlainTextEdit.__init__(self, parent)
-                CompletionMixin.__init__(self, language=language, file_path=path)
     """
 
-    def __init__(self, language='text', file_path=None):
-        """
-        DON'T call super().__init__() here, because we don't want to collide
-        with the QPlainTextEdit constructor in multiple inheritance.
-        Instead, the final class initializes QPlainTextEdit first, then calls
-        CompletionMixin.__init__().
-        """
-        logger.info("Initializing CompletionMixin with language=%s, file_path=%s", language, file_path)
-
-        # Store the file path and language
-        self._cm_file_path = file_path
-        self._cm_language = language.lower() if language else 'text'
-
-        # Worker process + queues
-        self._cm_request_queue = multiprocessing.Queue()
-        self._cm_result_queue = multiprocessing.Queue()
-        self._cm_worker_process = multiprocessing.Process(
-            target=completion_worker,
-            args=(self._cm_request_queue, self._cm_result_queue),
-        )
-        logger.info("Starting completion worker process.")
-        self._cm_worker_process.start()
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        logger.info("Initializing Complete")
 
         # Debounce timer (100 ms)
         self._cm_debounce_timer = QTimer(self)
@@ -51,15 +24,6 @@ class CompletionMixin:
         self._cm_debounce_timer.setInterval(100)
         # Instead of directly requesting completion, we dispatch calltip vs. completion here
         self._cm_debounce_timer.timeout.connect(self._cm_debounce_dispatch)
-
-        # Poll timer to retrieve results from the worker
-        self._cm_poll_timer = QTimer(self)
-        self._cm_poll_timer.setInterval(50)  # 10 times/second
-        self._cm_poll_timer.timeout.connect(self._cm_check_result)
-        self._cm_poll_timer.start()
-
-        # Single ongoing request flag, used for both completions and calltips
-        self._cm_ongoing_request = False
 
         # Track the cursor position when a request was made
         self._cm_requested_cursor_pos = None
@@ -72,7 +36,7 @@ class CompletionMixin:
         self._cm_calltip_widget = CalltipWidget(self)
         self._cm_calltip_widget.hide()
         self._cm_paren_prefix = None
-        logger.info("CompletionMixin initialized.")
+        logger.info("Complete initialized.")
 
     def _update_paren_prefix_cache(self):
         """
@@ -97,32 +61,34 @@ class CompletionMixin:
         Use the prefix cache to quickly check if the current cursor
         is inside an unmatched '(' context.
         """
-        if self._cm_paren_prefix is None:
-            self._update_paren_prefix_cache()
         pos = self.textCursor().position()
-        # If the balance is > 0 at pos, there's at least one '(' not yet closed.
+        if self._cm_paren_prefix is None or pos >= len(self._cm_paren_prefix):
+            self._update_paren_prefix_cache()
         return self._cm_paren_prefix[pos] > 0
     
     def _is_navigation_key(self, event):
-        """Same as before, just returning True if event.key is an arrow/home/end etc."""
+        """Return True if event is a navigation key (arrow/home/end/page)."""
         nav_keys = {
             Qt.Key_Up, Qt.Key_Down, Qt.Key_Home, Qt.Key_End, Qt.Key_PageUp,
             Qt.Key_PageDown
         }
         return event.key() in nav_keys
     
+    def mousePressEvent(self, event):
+        """Make sure the calltip doesn't stay open when we navigate away with
+        the mouse.
+        """
+        super().mousePressEvent(event)
+        self._cm_hide_and_recheck_calltip_if_unclosed()
+        self._cm_completion_popup.hide()
+    
     def keyPressEvent(self, event):
         """
-        Updated logic to remove duplication:
-          1) We define a helper _cm_hide_and_recheck_calltip_if_unclosed() for the
-             arrow-key cases where we cross '(' or ')'.
-          2) We no longer update the paren prefix cache after navigation keys,
-             per your request.
-          3) The rest of the logic remains the same as before.
+        Updated logic to prevent completion on arrow keys:
+          • We skip calling self._cm_debounce_timer.start() if the user pressed a nav key.
         """
         typed_char = event.text()
-        old_pos = self.textCursor().position()  # remember cursor position before super()
-    
+        old_pos = self.textCursor().position()  # remember cursor pos before super()
         # 1) If the popup is visible, handle completion navigation or acceptance.
         if self._cm_completion_popup.isVisible():
             if event.key() in (Qt.Key_Enter, Qt.Key_Return, Qt.Key_Tab):
@@ -159,13 +125,11 @@ class CompletionMixin:
         is_left = (event.key() == Qt.Key_Left)
         is_right = (event.key() == Qt.Key_Right)
         if is_left or is_right:
-            # Let the cursor move first.
             super().keyPressEvent(event)
             new_pos = self.textCursor().position()
     
             # If we moved left and jumped over '(' => hide & re-check
             if is_left and (old_pos - new_pos == 1):
-                # The char at new_pos is the newly "revealed" character we jumped over
                 text = self.toPlainText()
                 if 0 <= new_pos < len(text) and text[new_pos] in '()':
                     self._cm_hide_and_recheck_calltip_if_unclosed()
@@ -174,18 +138,13 @@ class CompletionMixin:
             # If we moved right and jumped over ')' => hide & re-check
             if is_right and (new_pos - old_pos == 1):
                 text = self.toPlainText()
-                # The char at old_pos was the newly "passed" character
                 if 0 <= old_pos < len(text) and text[old_pos] in '()':
                     self._cm_hide_and_recheck_calltip_if_unclosed()
                 return
-    
-            # If we got here, it was a left/right arrow but not crossing '(' or ')',
-            # so do nothing special about calltips.
             return
     
-        # 4) If user pressed a navigation key (Home, End, PgUp, etc.), hide calltip and then re-check position.
+        # 4) If user pressed a navigation key (Home, End, PgUp, etc.), hide calltip and re-check
         if self._is_navigation_key(event):
-            # Process the navigation so the cursor actually moves.
             super().keyPressEvent(event)
             self._cm_hide_and_recheck_calltip_if_unclosed()
             return
@@ -212,20 +171,20 @@ class CompletionMixin:
         # Let the editor insert or remove the character normally
         super().keyPressEvent(event)
     
-        # 7) Update the paren cache after text changed (but not after arrow nav)
+        # 7) Update the paren cache after text changed
         self._update_paren_prefix_cache()
     
-        # 8) If user typed "(", we show or update the calltip
+        # 8) If user typed "(", request a calltip
         if typed_char == '(':
             logger.info("User typed '(' => requesting calltip.")
             self._cm_request_calltip()
     
-        # If we removed an "(", hide calltip
+        # 9) If we removed an "(", hide calltip
         if backspace_removing_open_paren:
             logger.info("User removed '(' => hiding calltip.")
             self._cm_hide_calltip()
     
-        # 9) Hide or keep the completion popup based on typed char
+        # 10) Hide/keep the popup based on typed_char
         if typed_char:
             if typed_char.isalnum() or typed_char in ('_', '.') or event.key() == Qt.Key_Backspace:
                 logger.info(f"User typed identifier-like char {typed_char!r}; keeping popup open (if visible).")
@@ -233,8 +192,11 @@ class CompletionMixin:
                 logger.info(f"User typed non-identifier char {typed_char!r}; hiding popup.")
                 self._cm_completion_popup.hide()
     
-        # 10) Finally, launch the debounce => triggers either calltip or completions
-        self._cm_debounce_timer.start()
+            # Only start the debounce timer if we have an actual typed character,
+            # so pressing arrow/navigation keys never triggers completion.
+            self._cm_debounce_timer.start()
+        else:
+            logger.info("No typed_char => not starting debounce timer.")
     
     
     def _cm_hide_and_recheck_calltip_if_unclosed(self):
@@ -244,9 +206,6 @@ class CompletionMixin:
         """
         if self._cm_calltip_widget.isVisible():
             self._cm_hide_calltip()
-        # We skip updating self._update_paren_prefix_cache() here because you noted
-        # it's not necessary after navigation keys. If you do want to re-check the
-        # text or cursor, feel free to add it back.
         if self._cursor_follows_unclosed_paren():
             self._cm_request_calltip()
     
@@ -273,7 +232,7 @@ class CompletionMixin:
 
     def _cm_request_completion(self, multiline=False):
         """Send a completion request if one is not already in progress."""
-        if self._cm_ongoing_request:
+        if self.worker_busy:
             logger.info("Completion request attempted while one is ongoing; ignoring.")
             return
 
@@ -281,71 +240,44 @@ class CompletionMixin:
         cursor_pos = self.textCursor().position()
         logger.info("Requesting completions at cursor_pos=%d, multiline=%s", cursor_pos, multiline)
 
-        self._cm_ongoing_request = True
         self._cm_requested_cursor_pos = cursor_pos
-        self._cm_request_queue.put({
-            'action': 'complete',
-            'code': code,
-            'cursor_pos': cursor_pos,
-            'multiline': multiline,
-            'path': self._cm_file_path,
-            'language': self._cm_language
-        })
+        self.send_worker_request(action='complete', code=code,
+                                 cursor_pos=cursor_pos,
+                                 multiline=multiline,
+                                 path=self.code_editor_file_path,
+                                 language=self.code_editor_language)
 
     def _cm_request_calltip(self):
         """Send a calltip request."""
-        if self._cm_ongoing_request:
+        if self.worker_busy:
             logger.info("Calltip request attempted while request is ongoing; ignoring.")
             return
 
         code = self.toPlainText()
         cursor_pos = self.textCursor().position()
+        self._cm_requested_calltip_cursor_pos = cursor_pos        
         logger.info("Requesting calltip at cursor_pos=%d", cursor_pos)
-
-        self._cm_ongoing_request = True
-        self._cm_requested_calltip_cursor_pos = cursor_pos
-        self._cm_request_queue.put({
-            'action': 'calltip',
-            'code': code,
-            'cursor_pos': cursor_pos,
-            'path': self._cm_file_path,
-            'language': self._cm_language
-        })
+        self.send_worker_request(action='calltip', code=code,
+                                 cursor_pos=cursor_pos,
+                                 path=self.code_editor_file_path,
+                                 language=self.code_editor_language)
 
     def _cm_hide_calltip(self):
         """Hide the calltip widget."""
         logger.info("Hiding calltip widget.")
         self._cm_calltip_widget.hide()
 
-    def _cm_check_result(self):
+    def handle_worker_result(self, action, result):
         """Check for completion or calltip results from the external worker."""
-        try:
-            result = self._cm_result_queue.get_nowait()
-        except Empty:
-            self._cm_poll_timer.start()
-            return
-
-        # If it's not a dict, ignore
-        if not isinstance(result, dict):
-            logger.info("Got invalid response (not a dict): %s", result)
-            return
-
-        action = result.get('action', None)
-        if action is None:
-            logger.info("Missing 'action' in worker response: %s", result)
-            return
-        self._cm_ongoing_request = False
-
+        super().handle_worker_result(action, result)
         if action == 'complete':
-            logger.info("Handling 'complete' action with result: %s", result)
+            logger.info("Handling 'complete' action with result")
             self._cm_complete(**result)
         elif action == 'calltip':
-            logger.info("Handling 'calltip' action with result: %s", result)
+            logger.info("Handling 'calltip' action with result")
             self._cm_calltip(**result)
-        else:
-            logger.info("Ignoring unknown action: %s", action)
 
-    def _cm_complete(self, action, completions, cursor_pos, multiline):
+    def _cm_complete(self, completions, cursor_pos, multiline):
         """Handle completion results from the worker."""
         # Discard if cursor changed since the request
         if cursor_pos != self.textCursor().position():
@@ -374,7 +306,7 @@ class CompletionMixin:
             logger.info("Showing completion popup with %d completions.", len(completions))
             self._cm_completion_popup.show_completions(completions)
 
-    def _cm_calltip(self, action, signatures, cursor_pos):
+    def _cm_calltip(self, signatures, cursor_pos):
         """
         Called when the worker returns calltip signature info.
         """
@@ -411,7 +343,8 @@ class CompletionMixin:
 
         # Convert its bottom-left to global coordinates, then shift down
         global_pos = self.mapToGlobal(cr.bottomLeft())
-        global_pos.setY(global_pos.y() + cr.height())
+        global_pos.setX(global_pos.x() + self.viewportMargins().left())
+        # global_pos.setY(global_pos.y() + cr.height())
 
         self._cm_calltip_widget.move(global_pos)
         self._cm_calltip_widget.show()
@@ -422,7 +355,7 @@ class CompletionMixin:
         handle the close event (which is typically QPlainTextEdit).
         """
         logger.info("Closing editor, shutting down completion worker.")
-        self._cm_request_queue.put({'action': 'quit'})  # safer than put(None)
+        self._cm_request_queue.put({'action': 'quit'})
         self._cm_worker_process.join()
         super().closeEvent(event)
         logger.info("Editor closed, worker process joined.")

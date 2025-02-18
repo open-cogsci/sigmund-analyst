@@ -4,17 +4,11 @@ from qtpy.QtWidgets import QPlainTextEdit
 import logging
 logging.basicConfig(level=logging.INFO, force=True)
 
+
 class AutoPair:
     """
     Generic mixin for auto-pairing brackets/quotes/etc.
     
-    Must be used with a QPlainTextEdit or subclass. For instance:
-
-        class MyEditor(QPlainTextEdit, AutoPair):
-            def __init__(self, parent=None):
-                super().__init__(parent)
-                ...
-
     You can override self.PAIRS to add or remove different open/close
     sequences. Each entry is a dict with:
       - open_seq: string that triggers auto-pair (e.g. '(' or '\"\"\"')
@@ -24,10 +18,6 @@ class AutoPair:
     """
     
     PAIRS = [
-        # Example triple quotes for Python:
-        {"open_seq": "\"\"\"", "close_seq": "\"\"\"", "inbetween_seq": "\n"}, 
-        {"open_seq": "'''",  "close_seq": "'''",  "inbetween_seq": "\n"},
-        
         {"open_seq": "(", "close_seq": ")", "inbetween_seq": ""},
         {"open_seq": "[", "close_seq": "]", "inbetween_seq": ""},
         {"open_seq": "{", "close_seq": "}", "inbetween_seq": ""},
@@ -160,3 +150,16 @@ class AutoPair:
             "Cursor restored to position %d",
             open_seq, close_seq, inbetween_seq, old_pos
         )
+
+
+class PythonAutoPair(AutoPair):
+    PAIRS = [
+        # Example triple quotes for Python:
+        {"open_seq": "\"\"\"", "close_seq": "\"\"\"", "inbetween_seq": "\n"}, 
+        {"open_seq": "'''",  "close_seq": "'''",  "inbetween_seq": "\n"},
+        {"open_seq": "(", "close_seq": ")", "inbetween_seq": ""},
+        {"open_seq": "[", "close_seq": "]", "inbetween_seq": ""},
+        {"open_seq": "{", "close_seq": "}", "inbetween_seq": ""},
+        {"open_seq": "\"", "close_seq": "\"", "inbetween_seq": ""},
+        {"open_seq": "\'", "close_seq": "\'", "inbetween_seq": ""},
+    ]

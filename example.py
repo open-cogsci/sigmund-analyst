@@ -1,33 +1,43 @@
 import sys
+from pathlib import Path
+from pyqt_code_editor.worker import manager
 from qtpy.QtWidgets import QApplication, QVBoxLayout, QWidget, QPlainTextEdit
-from pyqt_code_editor_mixins.completion_mixin import CompletionMixin
+from pyqt_code_editor.mixins import Complete, PythonAutoIndent, \
+    PythonAutoPair, HighlightSyntax, Zoom, LineNumber, Comment, \
+    SearchReplace, Base, Check, Shortcuts, FileLink
 
 
-class CodeEditor(CompletionMixin, QPlainTextEdit):
-    def __init__(self, parent=None, language='text', path=None):
-        QPlainTextEdit.__init__(self, parent)
-        CompletionMixin.__init__(self, language=language, file_path=path)
-        
+SRC = 'tmp.py'
+
+
+class PythonCodeEditor(LineNumber, Zoom, PythonAutoPair, Complete,
+                       PythonAutoIndent, Comment, SearchReplace, FileLink,
+                       HighlightSyntax, Check, Shortcuts, Base,
+                       QPlainTextEdit):
+    pass
+
 
 class MainWindow(QWidget):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Simple Code Editor with External Completion")
+        self.setWindowTitle("PyQtCodeEditor")
         layout = QVBoxLayout()
-        self.editor = CodeEditor(language='python')
-        self.editor.setPlainText('''from matplotlib import pyplot as plt
-fig = plt.figure(figsize=(6, 6))
-''')
+        self.editor = PythonCodeEditor()
+        self.editor.open_file(SRC)
         layout.addWidget(self.editor)
         self.setLayout(layout)
 
-
-def main():
-    app = QApplication(sys.argv)
-    win = MainWindow()
-    win.show()
-    sys.exit(app.exec_())
+    def closeEvent(self, event):
+        # Explicitly stop all workers
+        manager.stop_all_workers()
+        super().closeEvent(event)
 
 
 if __name__ == "__main__":
-    main()
+    app = QApplication(sys.argv)
+    win = MainWindow()
+    win.show()
+    try:
+        sys.exit(app.exec_())
+    finally:
+        manager.stop_all_workers()

@@ -1,10 +1,7 @@
-##########################################
-# Updated completion_popup.py (example)
-##########################################
-
 from qtpy.QtCore import Qt
 from qtpy.QtGui import QTextCursor
 from qtpy.QtWidgets import QListWidget, QListWidgetItem
+
 
 class CompletionPopup(QListWidget):
     """
@@ -13,9 +10,17 @@ class CompletionPopup(QListWidget):
     so that it won't flicker when the user keeps typing in the editor.
     """
     def __init__(self, editor):
-        super().__init__(None)
+        super().__init__(editor)
         self.editor = editor
-
+        self.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)        
+        if editor.code_editor_colors is not None:
+            self.setStyleSheet(f'''QListWidget {{
+                color: {editor.code_editor_colors['text']};
+                background-color: {editor.code_editor_colors['background']};
+                font: {editor.code_editor_font_size}pt '{editor.code_editor_font_family}';
+                border: 1px solid {editor.code_editor_colors['border']};
+            }}''')
         # Use a frameless tool window so it can float above the editor
         # without stealing focus. Note we do NOT use Qt.Popup here.
         self.setWindowFlags(Qt.FramelessWindowHint | Qt.Tool)
@@ -42,58 +47,30 @@ class CompletionPopup(QListWidget):
             self.hide()
             return
 
-        # Place near the text cursor
+        # Place near the text cursor, taking into account that the viewport 
+        # might change due to line numbers or other things to the left of the
+        # editor
         cursor_rect = self.editor.cursorRect()
+        cursor_rect.moveRight(cursor_rect.left() + self.editor.viewportMargins().left())
         global_pos = self.editor.mapToGlobal(cursor_rect.bottomLeft())
         self.move(global_pos)
 
         # Resize to fit the number of completions (within reason)
         self.setCurrentRow(0)
-        self.resize(200, min(200, self.sizeHintForRow(0) * len(completions) + 8))
+        self.resize(min(500, self.sizeHintForColumn(0) + 8),
+                    min(500, self.sizeHintForRow(0) * len(completions) + 8))
 
         # If we are already visible, no need to hide/show
         # Just continue to show it in the new position.
         if not self.isVisible():
             self.show()
-
-    # def keyPressEvent(self, event):
-    #     """
-    #     If the user presses Enter/Tab while this has focus (i.e. user clicked),
-    #     insert the completion. Otherwise, pass the event to the editor.
-    #     """
-    #     if event.key() in (Qt.Key_Enter, Qt.Key_Return, Qt.Key_Tab):
-    #         self.insert_completion(self.currentItem())
-    #         event.accept()
-    #         return
-    #     elif event.key() == Qt.Key_Up:
-    #         row = self.currentRow()
-    #         self.setCurrentRow(max(0, row - 1))
-    #         event.accept()
-    #         return
-    #     elif event.key() == Qt.Key_Down:
-    #         row = self.currentRow()
-    #         self.setCurrentRow(min(self.count() - 1, row + 1))
-    #         event.accept()
-    #         return
-    #     elif event.key() == Qt.Key_Escape:
-    #         self.hide()
-    #         event.accept()
-    #         return
-
-    #     # For any other key, pass it back to the editor
-    #     # This also means the popup will remain visible if the user typed
-    #     # a character that triggers an updated completion list.
-    #     self.hide()
-    #     self.editor.setFocus()
-    #     self.editor.keyPressEvent(event)
-
+            
     def focusOutEvent(self, event):
         """
         We override focusOutEvent but don't hide the popup
         so we can continue showing suggestions while the editor has focus.
         """
         # If you want it to hide whenever it loses focus, uncomment:
-        # self.hide()
         super().focusOutEvent(event)
 
     def insert_completion(self, item):

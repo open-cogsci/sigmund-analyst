@@ -1,9 +1,9 @@
 import logging; logging.basicConfig(level=logging.INFO, force=True)
-from .completion_providers import symbol_complete, jedi_complete, jedi_signatures, settings
+from .providers import codestral, jedi, symbol, ruff
 
 logger = logging.getLogger(__name__)
 
-def completion_worker(request_queue, result_queue):
+def main_worker_process_function(request_queue, result_queue):
     """
     Runs in a separate process, handling requests in dict form.
     Supported actions include:
@@ -44,12 +44,17 @@ def completion_worker(request_queue, result_queue):
 
             logger.info(f"Performing code completion: language='{language}', multiline={multiline}, path={path}")
             if language == 'python':
-                completions = jedi_complete(
+                completions = jedi.jedi_complete(
                     code, cursor_pos, path=path, multiline=multiline)
+                if not completions:
+                    codestral.last_codestral_request_cursor = None
+                completions = codestral.codestral_complete(
+                    code, cursor_pos, path=path, multiline=multiline) \
+                        + completions
             else:
-                completions = symbol_complete(
+                completions = symbol.symbol_complete(
                     code, cursor_pos, path=path, multiline=multiline)
-            if completions is None:
+            if not completions:
                 logger.info("No completions. Sending result back.")
             else:
                 logger.info(f"Generated {len(completions)} completions. Sending result back.")
@@ -69,7 +74,7 @@ def completion_worker(request_queue, result_queue):
 
             logger.info(f"Performing calltip: language='{language}', path={path}")
             if language == 'python':
-                signatures = jedi_signatures(code, cursor_pos, path=path)
+                signatures = jedi.jedi_signatures(code, cursor_pos, path=path)
                 if signatures is None:
                     logger.info("No signatures. Sending result back.")
                 else:
@@ -90,5 +95,14 @@ def completion_worker(request_queue, result_queue):
             logger.info(f"Updating setting: {name} = {value}")
             if name is not None:
                 setattr(settings, name, value)
+                
+        elif action == 'check':
+            code = request.get('code', '')
+            language = request.get('language', 'python')
+            check_results = ruff.ruff_check(code)
+            result_queue.put({
+                'action': 'check',
+                'messages': check_results
+            })
 
     logger.info("Completion worker has shut down.")
