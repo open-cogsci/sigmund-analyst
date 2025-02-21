@@ -7,7 +7,7 @@ from pyqt_code_editor.mixins import Complete, PythonAutoIndent, \
     SearchReplace, Base, Check, Shortcuts, FileLink
 
 
-SRC = 'tmp.py'
+SRC = 'pyqt_code_editor/mixins/base.py'
 
 
 class PythonCodeEditor(LineNumber, Zoom, PythonAutoPair, Complete,
@@ -37,7 +37,4 @@ if __name__ == "__main__":
     app = QApplication(sys.argv)
     win = MainWindow()
     win.show()
-    try:
-        sys.exit(app.exec_())
-    finally:
-        manager.stop_all_workers()
+    sys.exit(app.exec_())
