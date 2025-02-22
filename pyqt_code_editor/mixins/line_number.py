@@ -1,6 +1,7 @@
-from qtpy.QtWidgets import QWidget, QPlainTextEdit, QToolTip
-from qtpy.QtCore import Qt, QRect, QSize, QPoint
-from qtpy.QtGui import QPainter, QTextFormat, QColor
+from qtpy.QtWidgets import QWidget, QToolTip
+from qtpy.QtCore import Qt, QRect, QSize
+from qtpy.QtGui import QPainter
+from .. import settings
 
 
 class LineNumberArea(QWidget):
@@ -13,12 +14,7 @@ class LineNumberArea(QWidget):
         super().__init__(editor)
         self.setMouseTracking(True)
         self._editor = editor
-        if editor.code_editor_colors is not None:
-            self.setStyleSheet(f'''QWidget {{
-                color: {editor.code_editor_colors['line-number']};
-                background-color: {editor.code_editor_colors['background']};
-                font: {editor.code_editor_font_size}pt '{editor.code_editor_font_family}';
-            }}''')
+        self.apply_stylesheet()
 
     def sizeHint(self):
         """
@@ -35,7 +31,15 @@ class LineNumberArea(QWidget):
         
     def mouseMoveEvent(self, event):
         self._editor.mouseMoveEvent(event)
-
+        
+    def apply_stylesheet(self):
+        editor = self.parent()
+        if editor.code_editor_colors is not None:
+            self.setStyleSheet(f'''QWidget {{
+                color: {editor.code_editor_colors['line-number']};
+                background-color: {editor.code_editor_colors['background']};
+                font: {settings.font_size}pt '{settings.font_family}';
+            }}''')
 
 class LineNumber:
     """
@@ -200,3 +204,7 @@ class LineNumber:
         if not hovered_any_line:
             QToolTip.hideText()
         super().mouseMoveEvent(event)
+
+    def update_theme(self):
+        super().update_theme()
+        self.lineNumberArea.apply_stylesheet()

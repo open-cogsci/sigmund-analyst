@@ -35,8 +35,11 @@ def ruff_check(code: str) -> list[dict]:
         return []
     formatted_result = {}
     for message in result:
-        formatted_result[message['location']['row']] = {
+        row = message['location']['row']
+        if row not in formatted_result:
+            formatted_result[row] = []
+        formatted_result[row].append({
             'code': message['code'],
             'message': message['message'],
-        }
+        })
     return formatted_result

@@ -1,9 +1,10 @@
-import logging; logging.basicConfig(level=logging.INFO, force=True)
-from qtpy.QtWidgets import QPlainTextEdit, QShortcut
+import logging
+from qtpy.QtWidgets import QShortcut
 from qtpy.QtGui import QTextCursor, QKeySequence
 from qtpy.QtCore import Qt, QEvent
 from .. import settings
 logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO, force=True)
 
 
 class Shortcuts:
@@ -48,14 +49,14 @@ class Shortcuts:
         doc_length = self.document().characterCount()
         
         cursor.beginEditBlock()
+        # We want to remove the trailing or preceding newline, but not both.
+        if end < doc_length - 1:
+            end += 1
+        elif start > 0:
+            start -= 1
         cursor.setPosition(start)
         cursor.setPosition(end, QTextCursor.KeepAnchor)
         cursor.removeSelectedText()
-        # If not the very last line, remove the trailing newline
-        if end < doc_length - 1:
-            text = self.toPlainText()
-            if end < len(text) and text[end] == '\n':
-                cursor.deleteChar()
         cursor.endEditBlock()
 
     def _current_line_bounds(self, cursor=None):
@@ -177,21 +178,51 @@ class Shortcuts:
 
     def _duplicate_line(self):
         """
-        Duplicate the current line below itself.
+        If there is no selection, duplicate the current block. If there is
+        a selection, all blocks that are part of the selection should be duplicated.
+        The anchor and cursor should be preserved on the lower of the duplicated blocks.
+        In other words, it should appear as if the duplication is inserted above.
         """
         cursor = self.textCursor()
-        start, end = self._current_line_bounds(cursor)
-
         cursor.beginEditBlock()
-        cursor.setPosition(start)
-        cursor.setPosition(end, QTextCursor.KeepAnchor)
-        line_text = cursor.selectedText()
         
-        # Move to the end of line and add newline + copy
-        cursor.setPosition(end)
-        if end < self.document().characterCount():
-            cursor.insertText("\n" + line_text)
-        else:
-            # If at the end of document, just append
-            cursor.insertText("\n" + line_text)
+        # 1) Remember original anchor and cursor positions
+        original_anchor = cursor.anchor()
+        original_position = cursor.position()
+        
+        # 2) Determine start_pos and end_pos based on anchor / cursor
+        start_pos = min(original_anchor, original_position)
+        end_pos   = max(original_anchor, original_position)
+        
+        # 3) Move the cursor to the start of the block that contains start_pos
+        cursor.setPosition(start_pos)
+        cursor.movePosition(cursor.StartOfBlock)
+        start_block_pos = cursor.position()
+        
+        # 4) Move the cursor to the end of the block containing end_pos (keeping anchor)
+        cursor.setPosition(end_pos, cursor.KeepAnchor)
+        cursor.movePosition(cursor.EndOfBlock, cursor.KeepAnchor)
+        end_block_pos = cursor.position()
+        
+        # 5) The text that is now selected should be duplicated
+        duplication_text = cursor.selectedText()
+        # QPlainTextEdit often uses U+2029 for newlines
+        duplication_text = duplication_text.replace(u'\u2029', '\n')
+        
+        # 6) Insert '\n' + duplication_text just after the selection
+        #    But first, move cursor to the end of the selected blocks without a selection
+        cursor.setPosition(end_block_pos, cursor.MoveAnchor)
+        # Now insert a new line plus the duplicated text
+        cursor.insertText('\n' + duplication_text)
+        
+        # Figure out how many characters were inserted
+        inserted_length = 1 + len(duplication_text)
+        
+        # 7) Restore anchor/cursor so that they point to the *new* lines (the lower portion).
+        #    According to your docstring, we want the final “visual” anchor/cursor to effectively
+        #    be as if the duplication is inserted above, leaving anchor/cursor on the newly inserted lines.        
+        cursor.setPosition(original_anchor + inserted_length, cursor.MoveAnchor)
+        cursor.setPosition(original_position + inserted_length, cursor.KeepAnchor)
+        
+        self.setTextCursor(cursor)        
         cursor.endEditBlock()

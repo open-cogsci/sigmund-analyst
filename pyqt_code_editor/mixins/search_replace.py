@@ -1,13 +1,15 @@
 import re
 from qtpy.QtWidgets import (
-    QPlainTextEdit, QWidget, QFrame, QVBoxLayout, QHBoxLayout,
-    QLineEdit, QPushButton, QCheckBox, QLabel, QShortcut, QApplication
+    QFrame, QVBoxLayout, QHBoxLayout,
+    QLineEdit, QPushButton, QCheckBox, QLabel, QShortcut
 )
 from qtpy.QtGui import (
-    QSyntaxHighlighter, QTextCharFormat, QColor, QFont, QAction,
-    QCursor, QTextCursor, QKeySequence, QTextDocument
+    QSyntaxHighlighter, QTextCharFormat, QColor, QAction,
+    QTextCursor, QKeySequence, QTextDocument
 )
-from qtpy.QtCore import Qt, QRect, Signal, QRegularExpression, QEvent
+from qtpy.QtCore import Qt, Signal
+from .. import settings
+
 
 class SearchReplaceHighlighter(QSyntaxHighlighter):
     """
@@ -23,8 +25,8 @@ class SearchReplaceHighlighter(QSyntaxHighlighter):
         
         # Highlight style
         self.highlight_format = QTextCharFormat()
-        self.highlight_format.setBackground(QColor("#fdff74"))  # light yellow
-        self.highlight_format.setForeground(QColor("#000000"))
+        self.highlight_format.setBackground(QColor(settings.search_replace_background))
+        self.highlight_format.setForeground(QColor(settings.search_replace_foreground))
     
     def setSearchOptions(self, pattern, use_regex, case_sensitive, whole_word):
         self._pattern = pattern
@@ -113,6 +115,7 @@ class SearchReplaceFrame(QFrame):
         findRow = QHBoxLayout()
         
         self.findLabel = QLabel("Find:", self)
+        self.matchCountLabel = QLabel("0 of 0", self)
         self.findEdit = QLineEdit(self)
         self.caseBox = QCheckBox("Aa", self)
         self.caseBox.setToolTip("Case Sensitive")
@@ -126,6 +129,7 @@ class SearchReplaceFrame(QFrame):
         
         findRow.addWidget(self.findLabel)
         findRow.addWidget(self.findEdit)
+        findRow.addWidget(self.matchCountLabel)
         findRow.addWidget(self.caseBox)
         findRow.addWidget(self.regexBox)
         findRow.addWidget(self.wholeWordBox)
@@ -232,59 +236,61 @@ class SearchReplace:
         self._searchFrame.wholeWordBox.toggled.connect(self.updateHighlighter)
         
         # Shortcuts
-        findShortcut = QShortcut(QKeySequence("Ctrl+F"), self)
+        findShortcut = QShortcut(QKeySequence.Find, self)
+        findShortcut.setContext(Qt.WidgetWithChildrenShortcut)
         findShortcut.activated.connect(self.showSearchOnly)
         
-        replShortcut = QShortcut(QKeySequence("Ctrl+H"), self)
+        replShortcut = QShortcut(QKeySequence.Replace, self)
+        replShortcut.setContext(Qt.WidgetWithChildrenShortcut)
         replShortcut.activated.connect(self.showSearchReplace)
         
         # Hide on Escape if wanted
         self.escapeAction = QAction(self)
-        self.escapeAction.setShortcut(QKeySequence("Escape"))
+        self.escapeShortcut = QShortcut(QKeySequence.Cancel, self)
+        self.escapeShortcut.setContext(Qt.WidgetWithChildrenShortcut)
+        self.escapeShortcut.activated.connect(self.hideSearch)
+        self.escapeShortcut.setEnabled(False)
         self.escapeAction.triggered.connect(self.hideSearch)
         self.escapeAction.setEnabled(False)
         self.addAction(self.escapeAction)
+        
+    def _showSearchReplace(self, search_only):
+        # If user has single-line selection, auto-populate
+        cursor = self.textCursor()
+        if cursor.hasSelection():
+            needle = cursor.selectedText().splitlines()            
+            if len(needle) == 1:
+                needle = needle[0].strip()
+                self._searchFrame.findEdit.setText(needle)
+            else:
+                needle = self._searchFrame.findEdit.text()
+            self._updateMatchLabel(needle, self._find_flags())
+        
+        if search_only:
+            self._searchFrame.showSearchOnly()
+        else:
+            self._searchFrame.showSearchReplace()
+        self._searchFrame.setVisible(True)
+        self._searchFrame.findEdit.setFocus()
+        self.updateSearchPosition()
+        
+        # Swap out original highlighter for the search highlighter
+        self._swapToSearchHighlighter()
+        self.updateHighlighter()
+        self.escapeAction.setEnabled(True)
+        self.escapeShortcut.setEnabled(True)         
     
     def showSearchOnly(self):
-        # If user has single-line selection, auto-populate
-        cursor = self.textCursor()
-        if cursor.hasSelection():
-            text = cursor.selectedText()
-            if "\n" not in text:
-                self._searchFrame.findEdit.setText(text)
-        
-        self._searchFrame.showSearchOnly()
-        self._searchFrame.setVisible(True)
-        self._searchFrame.findEdit.setFocus()
-        self.updateSearchPosition()
-        
-        # Swap out original highlighter for the search highlighter
-        self._swapToSearchHighlighter()
-        self.updateHighlighter()
-        self.escapeAction.setEnabled(True)
+        self._showSearchReplace(search_only=True)
     
     def showSearchReplace(self):
-        # If user has single-line selection, auto-populate
-        cursor = self.textCursor()
-        if cursor.hasSelection():
-            text = cursor.selectedText()
-            if "\n" not in text:
-                self._searchFrame.findEdit.setText(text)
-        
-        self._searchFrame.showSearchReplace()
-        self._searchFrame.setVisible(True)
-        self._searchFrame.findEdit.setFocus()
-        self.updateSearchPosition()
-        
-        # Swap out original highlighter for the search highlighter
-        self._swapToSearchHighlighter()
-        self.updateHighlighter()
-        self.escapeAction.setEnabled(True)
+        self._showSearchReplace(search_only=False)
     
     def hideSearch(self):
         self._searchFrame.setVisible(False)
         self.setFocus()
         self.escapeAction.setEnabled(False)
+        self.escapeShortcut.setEnabled(False)
         # Revert to original highlighter
         self._revertToOriginalHighlighter()
     
@@ -316,6 +322,16 @@ class SearchReplace:
         self._searchHighlighter.setDocument(None)
         if self._originalHighlighter:
             self._originalHighlighter.setDocument(self.document())
+            
+    def _find_flags(self, forward=True):
+        flags = QTextDocument.FindFlag(0)
+        if self._searchFrame.caseBox.isChecked():
+            flags |= QTextDocument.FindFlag.FindCaseSensitively
+        if not forward:
+            flags |= QTextDocument.FindFlag.FindBackward
+        if self._searchFrame.wholeWordBox.isChecked():
+            flags |= QTextDocument.FindFlag.FindWholeWords
+        return flags
     
     def findNext(self):
         self._find(forward=True)
@@ -324,20 +340,16 @@ class SearchReplace:
         self._find(forward=False)
     
     def _find(self, forward=True):
-        flags = QTextDocument.FindFlag(0)
-        if self._searchFrame.caseBox.isChecked():
-            flags |= QTextDocument.FindFlag.FindCaseSensitively
-        if not forward:
-            flags |= QTextDocument.FindFlag.FindBackward
-        if self._searchFrame.wholeWordBox.isChecked():
-            flags |= QTextDocument.FindFlag.FindWholeWords
-        
+        flags = self._find_flags(forward=forward) 
         needle = self._searchFrame.findEdit.text()
         if not needle:
+            self._searchFrame.matchCountLabel.clear()
             return
         
-        # Wrap-around approach
-        found = self.find(needle, QTextDocument.FindFlag(flags))
+        # 1) Attempt to find next/prev match.
+        found = self.find(needle, flags)
+        
+        # 2) If not found, do wrap-around by jumping to start or end.
         if not found:
             cursor = self.textCursor()
             if forward:
@@ -346,6 +358,73 @@ class SearchReplace:
                 cursor.movePosition(QTextCursor.End)
             self.setTextCursor(cursor)
             self.find(needle, flags)
+
+        # 3) Regardless of found or wrap-around success, update label:
+        self._updateMatchLabel(needle, flags)
+
+    def _updateMatchLabel(self, needle, flags):
+        """
+        Counts how many total occurrences are in the document
+        and which occurrence the cursor is currently on. Then sets
+        "X of Y" in self._searchFrame.matchCountLabel, or clears
+        it if no matches are found.
+        """
+        if not needle:
+            self._searchFrame.matchCountLabel.clear()
+            return
+        
+        # We'll remove any backward flag to count from top to bottom
+        # so we can do a standard forward pass for counting:
+        forward_flags = QTextDocument.FindFlag(flags & ~QTextDocument.FindBackward)
+
+        # Save the user's current cursor
+        saved_cursor = self.textCursor()
+
+        # Move a fresh cursor to the start
+        temp_cursor = QTextCursor(self.document())
+        temp_cursor.movePosition(QTextCursor.Start)
+
+        total_matches = 0
+        current_index = 0
+
+        # We'll store all match positions so we can see which is "current"
+        found_positions = []
+
+        # 1) Find all matches from top to bottom.
+        while True:
+            temp_cursor = self.document().find(needle, temp_cursor, forward_flags)
+            if temp_cursor.isNull():
+                break
+            found_positions.append((temp_cursor.position(), temp_cursor.anchor()))
+            total_matches += 1
+        
+        if total_matches == 0:
+            # No matches at all
+            self._searchFrame.matchCountLabel.clear()
+            # Restore original cursor
+            self.setTextCursor(saved_cursor)
+            return
+        
+        # 2) Determine which match is "current" by comparing
+        # our saved_cursor's position to the found positions:
+        current_pos = saved_cursor.position()
+        current_anchor = saved_cursor.anchor()
+
+        for idx, (pos, anch) in enumerate(found_positions, start=1):
+            if pos == current_pos and anch == current_anchor:
+                current_index = idx
+                break
+        
+        if current_index == 0:
+            # Possibly just in wrap-around scenario; we can do extra logic
+            # or default to 1 (the last found match).
+            current_index = total_matches
+
+        # 3) Update the label text
+        self._searchFrame.matchCountLabel.setText(f"{current_index} of {total_matches}")
+
+        # 4) Restore original cursor
+        self.setTextCursor(saved_cursor)
     
     def replaceOne(self):
         needle = self._searchFrame.findEdit.text()

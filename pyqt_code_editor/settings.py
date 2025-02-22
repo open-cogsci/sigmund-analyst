@@ -1,5 +1,8 @@
 import os
 
+font_size = 16
+font_family = 'Ubuntu Mono'
+
 # Worker
 max_completions = 5
 
@@ -25,3 +28,20 @@ shortcut_duplicate_line = 'Ctrl+D'
 
 # Comment mixin
 shortcut_comment = 'Ctrl+/'
+
+# TabSplitter
+shortcut_split_horizontally = 'Ctrl+Shift+H'
+shortcut_split_vertically = 'Ctrl+Shift+V'
+
+# SearchReplaceHiglighter
+search_replace_background = "#fdff74" # light yellow
+search_replace_foreground = "#000000"
+
+# ProjectExplorer
+shortcut_quick_open_file = 'Ctrl+P'
+
+# Symbols
+shortcut_symbols = 'Ctrl+R'
+
+# TabbedEditor
+shortcut_previous_tab = 'Ctrl+Shift+Tab'

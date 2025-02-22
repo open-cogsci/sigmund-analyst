@@ -1,7 +1,7 @@
-import multiprocessing
 from ..worker import manager
-from qtpy.QtCore import QTimer
-import logging; logging.basicConfig(level=logging.INFO, force=True)
+from qtpy.QtCore import QTimer, Signal
+import logging
+logging.basicConfig(level=logging.INFO, force=True)
 logger = logging.getLogger(__name__)
 
 
@@ -9,6 +9,7 @@ class Base:
     
     code_editor_file_path = None
     code_editor_colors = None
+    modification_changed = Signal(bool)
     
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -26,7 +27,7 @@ class Base:
         self.worker_busy = False
         # Keep track of modified status
         self.modified = False
-        self.modificationChanged.connect(self._set_modified)
+        self.modificationChanged.connect(self.set_modified)
         
     def eventFilter(self, obj, event):
         """Can be implement in other mixin classes to filter certain events,
@@ -91,7 +92,15 @@ class Base:
         self.worker_busy = False
         logger.info(f"received worker result: action={action}")
         self.handle_worker_result(action, result)
-
-    def _set_modified(self, modified):
+        
+    def set_modified(self, modified):
         logger.info(f'modified: {modified}')
+        self.document().setModified(modified)
         self.modified = modified
+        self.modification_changed.emit(modified)
+
+    def update_theme(self):
+        """Mixins can implement this to update the theme in response to font changes
+        etc.
+        """
+        pass

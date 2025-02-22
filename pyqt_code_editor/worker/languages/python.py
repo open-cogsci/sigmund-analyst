@@ -14,3 +14,4 @@ def complete(code, cursor_pos, path, multiline):
 
 calltip = jedi.jedi_signatures
 check = ruff.ruff_check
+symbols = jedi.jedi_symbols

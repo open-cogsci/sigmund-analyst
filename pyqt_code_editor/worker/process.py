@@ -1,7 +1,6 @@
-import logging; logging.basicConfig(level=logging.INFO, force=True)
+import logging
 import importlib
-from .providers import codestral, jedi, symbol, ruff
-
+logging.basicConfig(level=logging.INFO, force=True)
 logger = logging.getLogger(__name__)
 worker_functions_cache = {}
 
@@ -106,6 +105,17 @@ def main_worker_process_function(request_queue, result_queue):
                 'cursor_pos': cursor_pos
             })
                 
+        elif action == 'symbols':
+            if worker_functions.symbols is None:
+                check_results = []
+            else:
+                code = request.get('code', '')
+                symbols_results = worker_functions.symbols(code)
+            result_queue.put({
+                'action': 'symbols',
+                'symbols': symbols_results
+            })
+            
         elif action == 'check':
             if worker_functions.check is None:
                 check_results = []

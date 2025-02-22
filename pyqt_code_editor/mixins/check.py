@@ -68,19 +68,25 @@ class Check:
         }
         background_color = QColor(self.code_editor_colors["highlight"])
         color = QColor(self.code_editor_colors["text"])
-        for line_number, message in result['messages'].items():
-            code = message.get('code', False)
-            if code:
+        for line_number, annotations in result['messages'].items():
+            if not annotations:
+                continue
+            # There may be multiple annotations for one line. If so, we use the
+            # code of the first annotation to determine the symbol.
+            if annotations[0].get('code', False):
                 symbol = '➜'
             else:
                 symbol = '❌'
-            msg = message.get('message', 'No description')
+            description = '\n'.join([
+                str(annotation['code']) + ': ' + annotation['message']
+                for annotation in annotations
+            ])
             annotation = {
                 'type': 'check',
                 'text': f'{symbol}{line_number}',
                 'background_color': background_color,
                 'color': color,
-                'tooltip': f'{code}: {msg}' if code else msg
+                'tooltip': description
             }
             self.code_editor_line_annotations[line_number] = annotation
         self.repaint()

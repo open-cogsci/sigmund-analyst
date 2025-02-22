@@ -1,10 +1,11 @@
-import logging; logging.basicConfig(level=logging.INFO, force=True)
+import logging
 import chardet
 from pathlib import Path
 from qtpy.QtCore import QFileSystemWatcher
-from qtpy.QtWidgets import QMessageBox
-
+from qtpy.QtWidgets import QMessageBox, QFileDialog
+logging.basicConfig(level=logging.INFO, force=True)
 logger = logging.getLogger(__name__)
+
 
 class FileLink:
     """
@@ -58,8 +59,9 @@ class FileLink:
         self.code_editor_encoding = used_encoding
 
         # (Re)watch this file
+        self._saving = False
         self._watch_file(path)
-        self.modified = False
+        self.set_modified(False)
 
     def save_file(self):
         """
@@ -68,33 +70,37 @@ class FileLink:
         a sensible exception is raised.
         """
         if not self.code_editor_file_path:
-            raise ValueError("No file path specified. Use save_file_as() instead or open_file() first.")
+            self.save_file_as()
+            return
         if not self.code_editor_encoding:
             # If no encoding is set, default again to UTF-8
             self.code_editor_encoding = "utf-8"
-
         path = Path(self.code_editor_file_path)
+        self._saving = True
         with path.open("w", encoding=self.code_editor_encoding) as f:
             f.write(self.toPlainText())
-        self.modified = False
+        self.set_modified(False)
 
-    def save_file_as(self, path: Path | str):
+    def save_file_as(self, path: Path | str =  None):
         """
         Saves the editor content to file and updates code_editor_file_path.
-        If no valid path or encoding is available, a sensible exception is raised.
+        If no path is provided, the user asked to choose.
         """
-        path = Path(path)
-        if not self.code_editor_encoding:
-            # Default to UTF-8 if we have no prior encoding
-            self.code_editor_encoding = "utf-8"
-
-        with path.open("w", encoding=self.code_editor_encoding) as f:
-            f.write(self.toPlainText())
-
-        # Update internal pointers
+        if path is None:
+            suggested_name = "untitled.txt"
+            path, _ = QFileDialog.getSaveFileName(
+                self,
+                "Save As",
+                suggested_name,
+                "All Files (*.*)"
+            )
+            if not path:
+                return
         self.code_editor_file_path = str(path)
+        self.save_file()
+        # Update internal pointers
         self._watch_file(path)
-        self.modified = False
+        self.set_modified(False)
 
     def _watch_file(self, path: Path):
         """Set up the QFileSystemWatcher to watch the newly opened or saved file."""
@@ -114,6 +120,10 @@ class FileLink:
         Called by QFileSystemWatcher whenever the watched file changes on disk.
         By default, offers the user to reload. If reloaded, calls open_file again.
         """
+        # If we have triggered a save ourselves, we ignore it but only once
+        if self._saving:
+            self._saving = False
+            return
         # Only respond if it matches the current file
         if changed_path != self.code_editor_file_path:
             return

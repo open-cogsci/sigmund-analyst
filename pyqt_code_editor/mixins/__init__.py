@@ -8,5 +8,6 @@ from .highlight_syntax import HighlightSyntax
 from .line_number import LineNumber
 from .python_auto_indent import PythonAutoIndent
 from .search_replace import SearchReplace
+from .symbols import Symbols
 from .shortcuts import Shortcuts
 from .zoom import Zoom

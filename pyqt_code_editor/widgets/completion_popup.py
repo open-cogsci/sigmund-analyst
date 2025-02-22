@@ -12,6 +12,7 @@ class CompletionPopup(QListWidget):
     def __init__(self, editor):
         super().__init__(editor)
         self.editor = editor
+        self._completion_map = {}
         self.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)        
         if editor.code_editor_colors is not None:
@@ -41,7 +42,8 @@ class CompletionPopup(QListWidget):
         """
         self.clear()
         for c in completions:
-            QListWidgetItem(c, self)
+            self._completion_map[c['name']] = c['completion']
+            QListWidgetItem(c['name'], self)
 
         if not completions:
             self.hide()
@@ -79,8 +81,8 @@ class CompletionPopup(QListWidget):
         """
         if not item:
             return
-        completion_text = item.text()
-        cursor = self.editor.textCursor()
-        cursor.insertText(completion_text)
-        self.editor.setTextCursor(cursor)
-        self.hide()
+        name = item.text()
+        completion = self._completion_map.get(name)
+        if not completion:
+            return
+        self.editor._cm_insert_completion(completion)

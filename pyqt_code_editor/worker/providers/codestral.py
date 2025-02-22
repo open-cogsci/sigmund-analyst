@@ -56,7 +56,7 @@ def codestral_complete(code: str, cursor_pos: int, path: str | None,
         if completion:
             # Update our global cursor tracker only on successful requests
             last_codestral_request_cursor = cursor_pos
-            return [completion]
+            return [{'completion' : completion, 'name': completion}]
         else:
             logger.info("Codestral completion: [empty]")
     else:

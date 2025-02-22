@@ -1,12 +1,11 @@
-import logging; logging.basicConfig(level=logging.INFO, force=True)
-from qtpy.QtCore import QTimer, Qt, QPoint
+import logging
+from qtpy.QtCore import QTimer, Qt
 from qtpy.QtGui import QTextCursor
-from qtpy.QtWidgets import QFrame, QLabel, QVBoxLayout
-from .widgets.completion_popup import CompletionPopup
-from .widgets.calltip_widget import CalltipWidget
-from ..worker import manager 
-
+from ..widgets.completion_popup import CompletionPopup
+from ..widgets.calltip_widget import CalltipWidget
+logging.basicConfig(level=logging.INFO, force=True)
 logger = logging.getLogger(__name__)
+
 
 class Complete:
     """
@@ -21,7 +20,7 @@ class Complete:
         # Debounce timer (100 ms)
         self._cm_debounce_timer = QTimer(self)
         self._cm_debounce_timer.setSingleShot(True)
-        self._cm_debounce_timer.setInterval(100)
+        self._cm_debounce_timer.setInterval(0)
         # Instead of directly requesting completion, we dispatch calltip vs. completion here
         self._cm_debounce_timer.timeout.connect(self._cm_debounce_dispatch)
 
@@ -61,6 +60,7 @@ class Complete:
         Use the prefix cache to quickly check if the current cursor
         is inside an unmatched '(' context.
         """
+        
         pos = self.textCursor().position()
         if self._cm_paren_prefix is None or pos >= len(self._cm_paren_prefix):
             self._update_paren_prefix_cache()
@@ -80,6 +80,20 @@ class Complete:
         """
         super().mousePressEvent(event)
         self._cm_hide_and_recheck_calltip_if_unclosed()
+        self._cm_completion_popup.hide()
+        
+    def wheelEvent(self, event):
+        """Make sure the calltip doesn't stay open when we scroll the viewport.
+        """
+        super().wheelEvent(event)
+        self._cm_hide_calltip()
+        self._cm_completion_popup.hide()
+        
+    def focusOutEvent(self, event):
+        """Make sure the calltip doesn't stay open when we scroll the viewport.
+        """
+        super().focusOutEvent(event)
+        self._cm_hide_calltip()
         self._cm_completion_popup.hide()
     
     def keyPressEvent(self, event):
@@ -188,13 +202,13 @@ class Complete:
         if typed_char:
             if typed_char.isalnum() or typed_char in ('_', '.') or event.key() == Qt.Key_Backspace:
                 logger.info(f"User typed identifier-like char {typed_char!r}; keeping popup open (if visible).")
+                # Only start the debounce timer if we have an actual typed character,
+                # so pressing arrow/navigation keys never triggers completion.
+                self._cm_debounce_timer.start()
             else:
                 logger.info(f"User typed non-identifier char {typed_char!r}; hiding popup.")
                 self._cm_completion_popup.hide()
     
-            # Only start the debounce timer if we have an actual typed character,
-            # so pressing arrow/navigation keys never triggers completion.
-            self._cm_debounce_timer.start()
         else:
             logger.info("No typed_char => not starting debounce timer.")
     
@@ -264,7 +278,6 @@ class Complete:
 
     def _cm_hide_calltip(self):
         """Hide the calltip widget."""
-        logger.info("Hiding calltip widget.")
         self._cm_calltip_widget.hide()
 
     def handle_worker_result(self, action, result):
@@ -276,24 +289,99 @@ class Complete:
         elif action == 'calltip':
             logger.info("Handling 'calltip' action with result")
             self._cm_calltip(**result)
+            
+    def _cm_insert_completion(self, completion):
+        """
+        This function is called when a completion fragment is selected
+        in a code editor that is based on a QPlainTextEdit. The completion
+        should be inserted at the cursor position, but there are a few
+        things to consider:
+
+        If the completion overlaps with the text that follows the cursor,
+        this trailing text should be removed to avoid duplication.
+
+        For example, in the situation below, the ')' should not be duplicated.
+        The | indicates the cursor position.
+
+        Text: print('Hello|')
+        Completion: world')
+        Result: print('Hello world')
+
+        The same holds for the previous text:
+
+        Text: print('Hello|')
+        Completion: Hello world')
+        Result: print('Hello world')
+
+        Now, we also want to remove any partial overlap on the left side
+        (i.e., if the user has already typed part of the completion that
+        appears at the beginning of completion). For instance, if the
+        user has typed "Hell" and the completion is "Hello world')", we
+        don't want to insert "Hell" again.
+
+        This function handles both directions:
+        1. Finds overlap at the end of the text before the cursor.
+        2. Finds overlap at the beginning of the text after the cursor.
+        """
+        cursor = self.textCursor()
+        doc_text = self.toPlainText()
+        current_pos = cursor.position()
+
+        # 1) Handle left-side overlap:
+        #    If part of the completion is already typed before the cursor,
+        #    we will skip that part of the completion.
+        before_text = doc_text[max(0, current_pos - len(completion)): current_pos]
+        left_overlap_size = 0
+        max_check_left = min(len(before_text), len(completion))
+        # Find the largest suffix of 'before_text' that matches
+        # the prefix of 'completion'
+        for i in range(max_check_left, 0, -1):
+            if before_text[-i:] == completion[:i]:
+                left_overlap_size = i
+                break
+        
+        # Create a new completion without what's already typed
+        new_completion = completion[left_overlap_size:]
+
+        # 2) Handle right-side overlap:
+        #    If the text immediately after the cursor duplicates
+        #    the new_completion, remove that overlap from the document.
+        after_text = doc_text[current_pos : current_pos + len(new_completion)]
+        right_overlap_size = 0
+        max_check_right = min(len(new_completion), len(after_text))
+        # Find the largest prefix of 'after_text' that matches
+        # the suffix of 'new_completion'
+        for i in range(max_check_right, 0, -1):
+            if new_completion[-i:] == after_text[:i]:
+                right_overlap_size = i
+                break
+
+        cursor.beginEditBlock()
+        if right_overlap_size > 0:
+            # Remove the overlapping segment from the document
+            cursor.setPosition(current_pos, QTextCursor.MoveAnchor)
+            cursor.setPosition(current_pos + right_overlap_size,
+                               QTextCursor.KeepAnchor)
+            cursor.removeSelectedText()
+
+        # 3) Insert the final completion text
+        cursor.insertText(new_completion)
+        cursor.endEditBlock()
+        self.setTextCursor(cursor)        
 
     def _cm_complete(self, completions, cursor_pos, multiline):
         """Handle completion results from the worker."""
         # Discard if cursor changed since the request
         if cursor_pos != self.textCursor().position():
-            logger.info(
-                "Discarding completions because cursor changed (old=%d, new=%d).",
-                cursor_pos, self.textCursor().position())
             return
 
         if not completions:
-            logger.info("No completions returned.")
             self._cm_completion_popup.hide()
             return
 
         if multiline:
             logger.info("Inserting first multiline completion: '%s'", completions[0])
-            completion_text = completions[0]
+            completion_text = completions[0]['completion']
             cursor = self.textCursor()
             start = cursor.position()
             cursor.insertText(completion_text)
@@ -359,3 +447,7 @@ class Complete:
         self._cm_worker_process.join()
         super().closeEvent(event)
         logger.info("Editor closed, worker process joined.")
+
+    def update_theme(self):
+        super().update_theme()
+        self._cm_calltip_widget.apply_stylesheet()

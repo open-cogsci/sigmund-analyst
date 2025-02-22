@@ -1,9 +1,11 @@
-import logging; logging.basicConfig(level=logging.INFO, force=True)
 from pygments.token import Token
 from pygments.styles import get_style_by_name
 from pygments.formatters.html import HtmlFormatter
 from pygments.lexers import get_lexer_by_name
 from qtpy.QtGui import QSyntaxHighlighter, QTextCharFormat, QBrush, QColor
+from .. import settings
+import logging
+logging.basicConfig(level=logging.INFO, force=True)
 logger = logging.getLogger(__name__)
 
 
@@ -178,25 +180,32 @@ class HighlightSyntax:
             'line-number': '#' + style.style_for_token(Token.Comment)['color'],
             'border': '#' + style.style_for_token(Token.Comment)['color']
         }
-        stylesheet = f"""
-QPlainTextEdit {{
-    background-color: {self.code_editor_colors['background']};
-    font: {self.code_editor_font_size}pt '{self.code_editor_font_family}';
-    color: {self.code_editor_colors['text']};
-}}
-QToolTip {{
-    color: {self.code_editor_colors['text']};
-    background-color: {self.code_editor_colors['background']};
-    font: {self.code_editor_font_size}pt '{self.code_editor_font_family}';
-    border-color: {self.code_editor_colors['border']};
-    border-width: 1px;
-    border-style: solid;
-    border-radius: 4px;
-    padding: 4px;
-}}
-"""
-        self.setStyleSheet(stylesheet)
+        self._apply_stylesheet()
 
     def refresh(self):
         super().refresh()
         self._highlighter.rehighlight()
+        
+    def update_theme(self):
+        super().update_theme()
+        self._apply_stylesheet()
+
+    def _apply_stylesheet(self):
+        stylesheet = f"""
+            QPlainTextEdit {{
+                background-color: {self.code_editor_colors['background']};
+                font: {settings.font_size}pt '{settings.font_family}';
+                color: {self.code_editor_colors['text']};
+            }}
+            QToolTip {{
+                color: {self.code_editor_colors['text']};
+                background-color: {self.code_editor_colors['background']};
+                font: {settings.font_size}pt '{settings.font_family}';
+                border-color: {self.code_editor_colors['border']};
+                border-width: 1px;
+                border-style: solid;
+                border-radius: 4px;
+                padding: 4px;
+            }}
+        """
+        self.setStyleSheet(stylesheet)

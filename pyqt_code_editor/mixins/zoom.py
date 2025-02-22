@@ -1,5 +1,5 @@
 from qtpy.QtCore import Qt
-from qtpy.QtGui import QKeySequence
+from .. import settings
 
 
 class Zoom:
@@ -41,18 +41,11 @@ class Zoom:
 
     def zoom_in(self):
         """ Increase the editor's font size by 1 point. """
-        self.code_editor_font_size += 1
-        self._apply_font_size()
+        settings.font_size += 1
+        self.update_theme()
 
     def zoom_out(self):
         """ Decrease the editor's font size by 1 point, down to a minimum of 1. """
-        if self.code_editor_font_size > 1:
-            self.code_editor_font_size -= 1
-        self._apply_font_size()
-
-    def _apply_font_size(self):
-        """ Apply the current code_editor_font_size to the editor's font. """
-        font = self.font()
-        font.setPointSize(self.code_editor_font_size)
-        self.setFont(font)
-        
+        if settings.font_size > 1:
+            settings.font_size -= 1
+        self.update_theme()

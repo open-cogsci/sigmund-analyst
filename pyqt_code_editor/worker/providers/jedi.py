@@ -1,7 +1,6 @@
 import re
 import logging
 import jedi
-import textwrap
 from ... import settings
 
 logger = logging.getLogger(__name__)
@@ -47,31 +46,29 @@ def jedi_complete(code: str, cursor_position: int, path: str | None, multiline: 
     for the text at the given cursor position, or None if no completion is found.
     """
     if multiline:
-        logger.info("Jedi doesn't handle multiline completions.")
         return []
     if cursor_position == 0 or not code:
-        logger.info("No code or cursor_position=0; returning None.")
         return []
-
     # Basic sanity check for whether we want to attempt completion.
     char_before = code[cursor_position - 1]
     # Typically, you'd allow '.', '_' or alphanumeric as a signal for completion
     if not re.match(r"[A-Za-z0-9_.]", char_before):
-        logger.info("Character before cursor is %r, not a valid trigger for completion.", char_before)
         return []
-
-    logger.info("Starting Jedi completion request (multiline=%r).", multiline)
+    # If the first preceding # comes before the first preceding newline, then we're inside a code comment
+    code_up_to_cursor = code[:cursor_position]
+    if code_up_to_cursor.rfind('#') > code_up_to_cursor.rfind('\n'):
+        return []
+    # Go Jedi!
     script, line_no, column_no = _prepare_jedi_script(code, cursor_position, path)
-
     completions = script.complete(line=line_no, column=column_no)
     if not completions:
-        logger.info("No completions returned by Jedi.")
         return []
-
-    # Filter out "empty" completions
-    result = [c.complete for c in completions[:settings.max_completions] if c.complete]
-    logger.info("Got %d completion(s) from Jedi.", len(result))
+    result = [
+        {'completion' : c.complete, 'name': c.name}
+        for c in completions[:settings.max_completions] if c.complete
+    ]
     return result or []
+
 
 def jedi_signatures(code: str, cursor_position: int, path: str | None,
                     multiline: bool = False, max_width: int = 40,
@@ -98,19 +95,23 @@ def jedi_signatures(code: str, cursor_position: int, path: str | None,
 
     results = []
     for sig in signatures:
-        # # sig.to_string() often returns a signature like "function(param, param2)"
-        # sig_str = sig.to_string()
-        # # docstring() returns the doc if available
-        # doc_str = sig.docstring() or ""
-        # if not doc_str.startswith(sig_str):
-        #     doc_str = sig_str + '\n\n' + doc_str
-        # # 2) Wrap doc_str, then truncate to max_lines
-        # wrapped_lines = textwrap.wrap(doc_str, width=max_width,
-        #                               replace_whitespace=True,
-        #                               drop_whitespace=False,
-        #                               max_lines=max_lines)
-        # short_doc_str = '\n'.join(wrapped_lines)
         results.append(_signature_to_html(sig))
 
     logger.info("Got %d signature(s) from Jedi.", len(results))
     return results or None
+
+
+def jedi_symbols(code: str) -> list[dict]:
+    """Retrieve symbols from Jedi given the current code."""
+    script = jedi.Script(code)
+    symbols = script.get_names(all_scopes=True)
+    results = []
+    for symbol in symbols:
+        if symbol.type not in ('function', 'class'):
+            continue
+        results.append({
+            'name': symbol.name,
+            'type': symbol.type,
+            'line': symbol.line
+        })
+    return results
