@@ -2,9 +2,44 @@
 
 __This code is under development and not ready for use__
 
-A fully featured code-editor widget for PyQt
+Fully featured code-editor widgets for PyQt
 
 Copyright 2025 Sebastiaan Mathôt
+
+
+## About
+
+This is a set of code-editor widgets for PyQt. They are inspired by PyQode, and contain much of the same functionality, but in a cleaner and more modern codebase.
+
+Features:
+    
+- A splittable, tabbed editor panel
+- Project explorer
+- Syntax highlighting
+- Code completion
+- Code checking (linting)
+- Code symbol navigation
+- Search/ replace
+- Completion of paired characers (e.g. brackets, quotes)
+- Automatic indentation (Python)
+- Zoom
+
+
+## Usage
+
+First, install all dependencies using:
+
+```
+pip install .
+pip install pyqt6  # or pyqt5
+```
+
+Next, start one of the example scripts:
+
+```
+python example_one_editor.py
+python example_full_editor.py
+```
 
 
 ## License

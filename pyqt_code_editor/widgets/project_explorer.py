@@ -20,9 +20,9 @@ logger = logging.getLogger(__name__)
 
 class ProjectExplorer(QDockWidget):
 
-    def __init__(self, tab_splitter, root_path=None, parent=None):
+    def __init__(self, editor_panel, root_path=None, parent=None):
         super().__init__("Project Explorer", parent)
-        self._tab_splitter = tab_splitter
+        self._editor_panel = editor_panel
 
         # Our local "clipboard" for cut/copy/paste
         self._clipboard_operation = None  # 'cut' or 'copy'
@@ -74,7 +74,7 @@ class ProjectExplorer(QDockWidget):
         dlg = QuickOpenFileDialog(
             parent=self,
             root_path=root_path,
-            open_file_callback=self._tab_splitter.open_file,
+            open_file_callback=self._editor_panel.open_file,
         )
         dlg.exec_()
 
@@ -83,7 +83,7 @@ class ProjectExplorer(QDockWidget):
         path = self._model.filePath(index)
         if os.path.isfile(path):
             logger.info(f"Double-click opening file: {path}")
-            self._tab_splitter.open_file(path)
+            self._editor_panel.open_file(path)
         else:
             logger.info(f"Double-clicked on directory: {path}")
 
@@ -113,7 +113,7 @@ class ProjectExplorer(QDockWidget):
 
         chosen_action = menu.exec_(self._tree_view.mapToGlobal(pos))
         if chosen_action == open_action:
-            self._tab_splitter.open_file(path)
+            self._editor_panel.open_file(path)
         elif chosen_action == new_file_action:
             self._create_new_file(os.path.dirname(path) if is_file else path)
         elif chosen_action == rename_action:

@@ -1,27 +1,23 @@
 import sys
 import logging
-from qtpy.QtWidgets import (
-    QMainWindow,
-    QApplication,
-)
+from qtpy.QtWidgets import QMainWindow, QApplication
 from qtpy.QtCore import Qt, QDir
-from pyqt_code_editor.widgets import TabSplitter, ProjectExplorer
+from pyqt_code_editor.widgets import EditorPanel, ProjectExplorer
 from pyqt_code_editor.worker import manager
 
 logger = logging.getLogger(__name__)
+
 
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         logger.info("MainWindow initialized")
         self.setWindowTitle("PyQt Code Editor")
-
-        # Import TabSplitter from your existing code (already in the workspace).
-        self._tab_splitter = TabSplitter()
-        self.setCentralWidget(self._tab_splitter)
-
+        # The editor panel provides splittable editor tabs
+        self._editor_panel = EditorPanel()
+        self.setCentralWidget(self._editor_panel)
         # Create the project explorer dock
-        self._project_explorer = ProjectExplorer(self._tab_splitter, root_path=QDir.currentPath())
+        self._project_explorer = ProjectExplorer(self._editor_panel, root_path=QDir.currentPath())
         self.addDockWidget(Qt.LeftDockWidgetArea, self._project_explorer)
 
         

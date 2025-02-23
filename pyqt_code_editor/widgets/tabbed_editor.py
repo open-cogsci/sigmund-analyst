@@ -1,3 +1,4 @@
+import os
 import logging
 from qtpy.QtGui import QKeySequence
 from qtpy.QtWidgets import QTabWidget, QShortcut, QMessageBox
@@ -14,7 +15,7 @@ class TabbedEditor(QTabWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         logger.info("TabbedEditor created")
-
+        self._synonyms = {}
         self.setTabsClosable(True)
         self.tabCloseRequested.connect(self.on_tab_close_requested)
         self._close_shortcut = QShortcut(QKeySequence.Close, self)
@@ -25,6 +26,20 @@ class TabbedEditor(QTabWidget):
         # self._prev_tab_shortcut = QShortcut(QKeySequence.PreviousChild, self)
         self._prev_tab_shortcut.setContext(Qt.WidgetWithChildrenShortcut)
         self._prev_tab_shortcut.activated.connect(self.previous_tab)
+        
+    def relabel_tabs(self, synonyms):
+        self._synonyms = synonyms
+        for index in range(self.count()):
+            editor = self.widget(index)
+            path = editor.code_editor_file_path
+            self.setTabText(index, self._synonym(path))
+        
+    def _synonym(self, path):
+        if path is None:
+            return 'Untitled'
+        if path in self._synonyms:
+            return self._synonyms[path]
+        return os.path.basename(path)
         
     def previous_tab(self):
         current_index = self.currentIndex()
@@ -84,10 +99,11 @@ class TabbedEditor(QTabWidget):
         logger.info("Adding new code editor tab")
         if path is not None:
             editor.open_file(path)
-            title = editor.code_editor_file_path
-        else:
-            title = 'Untitled'
+        title = self._synonym(editor.code_editor_file_path)
         index = self.addTab(editor, title)
         self.setCurrentIndex(index)
         return editor
-    
+        
+    def editors(self):
+        """Returns a list of all editors in this tab widget"""
+        return [self.widget(i) for i in range(self.count())]

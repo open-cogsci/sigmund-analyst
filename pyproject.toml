@@ -1,0 +1,24 @@
+[build-system]
+requires = ["flit_core >=3.4"]
+build-backend = "flit_core.buildapi"
+[project]
+name = "pyqt_code_editor"
+authors = [
+    {name = "Sebastiaan Mathôt", email = "s.mathot@cogsci.nl"}
+]
+readme = "readme.md"
+license = {file = "COPYING"}
+requires-python = ">=3.10"
+dynamic = ["version", "description"]
+dependencies = [
+    "ruff",
+    "jedi",
+    "qtpy",
+    "mistralai",
+    "chardet"
+]
+keywords = ["code editor", "pyqt", "ide"]
+[tool.flit.sdist]
+exclude = ["doc-pelican", "testcases", ".github"]
+[project.urls]
+Source = "https://github.com/open-cogsci/pyqt_code_editor"

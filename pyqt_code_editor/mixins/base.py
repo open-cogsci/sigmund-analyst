@@ -4,12 +4,15 @@ import logging
 logging.basicConfig(level=logging.INFO, force=True)
 logger = logging.getLogger(__name__)
 
+active_editor = None
+
 
 class Base:
     
     code_editor_file_path = None
     code_editor_colors = None
     modification_changed = Signal(bool)
+    received_focus = Signal(object)
     
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -33,7 +36,14 @@ class Base:
         """Can be implement in other mixin classes to filter certain events,
         for example to avoid certain keypresses from being consumed.
         """
-        return False        
+        return False
+
+    def focusInEvent(self, event):
+        """Allows managing widgets, such as the editor panel, to keep track of
+        which editor is active
+        """
+        super().focusInEvent(event)
+        self.received_focus.emit(self)
     
     def refresh(self):
         """Can be called to indicate that the interface needs to be refreshed,
