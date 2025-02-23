@@ -1,4 +1,27 @@
 import os
+from pygments.lexers import guess_lexer_for_filename
+from pygments.util import ClassNotFound
+
+
+def guess_language_from_path(filepath):
+    """
+    Detect programming language for a given file using Pygments.
+    Returns a lowercase string, e.g. 'python', or falls back to 'text'.
+    """
+    if filepath is None:
+        return 'text'
+    try:
+        # Read entire file as text (note: could be slow for very large files)
+        with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
+            contents = f.read()
+
+        # Attempt to guess language
+        lexer = guess_lexer_for_filename(filepath, contents)
+        return lexer.name.lower()
+    except (FileNotFoundError, ClassNotFound, UnicodeDecodeError):
+        # If file doesn't exist or we can't guess the language,
+        # we fall back to 'text'
+        return 'text'
 
 
 def shorten_paths(paths):
@@ -70,3 +93,5 @@ def shorten_paths(paths):
         results.append(short)
     
     return results
+
+

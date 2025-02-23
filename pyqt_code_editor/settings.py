@@ -18,8 +18,7 @@ codestral_min_context = 100
 codestral_model = 'codestral-latest'
 codestral_api_key = os.environ.get('CODESTRAL_API_KEY')
 codestral_url = 'https://codestral.mistral.ai'
-codestral_timeout = 1000
-codestral_timeout_multiline = 5000
+codestral_timeout = 5000
 
 # Shortcuts mixin
 shortcut_move_line_up = 'Alt+Up'

@@ -71,9 +71,10 @@ def main_worker_process_function(request_queue, result_queue):
                 cursor_pos = request.get('cursor_pos', 0)
                 path = request.get('path', None)
                 multiline = request.get('multiline', False)
+                full = request.get('full', False)
                 logger.info(f"Performing code completion: language='{language}', multiline={multiline}, path={path}")
                 completions = worker_functions.complete(
-                    code, cursor_pos, path=path, multiline=multiline)
+                    code, cursor_pos, path=path, multiline=multiline, full=full)
             if not completions:
                 logger.info("No completions")
             else:
@@ -82,7 +83,8 @@ def main_worker_process_function(request_queue, result_queue):
                 'action': 'complete',
                 'completions': completions,
                 'cursor_pos': cursor_pos,
-                'multiline': multiline
+                'multiline': multiline,
+                'full': full
             })
 
         elif action == 'calltip':
@@ -118,7 +120,7 @@ def main_worker_process_function(request_queue, result_queue):
             
         elif action == 'check':
             if worker_functions.check is None:
-                check_results = []
+                check_results = {}
             else:
                 code = request.get('code', '')
                 check_results = worker_functions.check(code)

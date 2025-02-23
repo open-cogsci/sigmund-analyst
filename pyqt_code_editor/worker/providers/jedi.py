@@ -40,13 +40,11 @@ def _prepare_jedi_script(code: str, cursor_position: int, path: str | None):
     return script, line_no, column_no
 
 
-def jedi_complete(code: str, cursor_position: int, path: str | None, multiline: bool = False) -> list[str]:
+def jedi_complete(code: str, cursor_position: int, path: str | None) -> list[str]:
     """
     Perform Python-specific completion using Jedi. Returns a list of possible completions
     for the text at the given cursor position, or None if no completion is found.
     """
-    if multiline:
-        return []
     if cursor_position == 0 or not code:
         return []
     # Basic sanity check for whether we want to attempt completion.

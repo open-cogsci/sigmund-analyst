@@ -4,18 +4,11 @@ from ... import settings
 
 logger = logging.getLogger(__name__)
 client = None
-last_codestral_request_cursor = None
 
 
 def codestral_complete(code: str, cursor_pos: int, path: str | None,
                        multiline: bool = False) -> list[str]:
     global client
-    global last_codestral_request_cursor
-
-    # Only call Codestral if we haven't called it recently
-    if (not multiline and last_codestral_request_cursor is not None 
-            and abs(cursor_pos - last_codestral_request_cursor) < 5):
-        return []
 
     if client is None:
         from mistralai import Mistral
@@ -36,13 +29,11 @@ def codestral_complete(code: str, cursor_pos: int, path: str | None,
         prompt=prompt,
         suffix=suffix,
         temperature=0,
-        top_p=1
+        top_p=1,
+        timeout_ms=settings.codestral_timeout,
     )
     if not multiline:
         request["stop"] = "\n"
-        request["timeout_ms"] = settings.codestral_timeout
-    else:
-        request["timeout_ms"] = settings.codestral_timeout_multiline
 
     try:
         response = client.fim.complete(**request)
@@ -54,8 +45,6 @@ def codestral_complete(code: str, cursor_pos: int, path: str | None,
         completion = response.choices[0].message.content
         logger.info(f"Codestral completion: {completion}")
         if completion:
-            # Update our global cursor tracker only on successful requests
-            last_codestral_request_cursor = cursor_pos
             return [{'completion' : completion, 'name': completion}]
         else:
             logger.info("Codestral completion: [empty]")

@@ -3,7 +3,7 @@ import logging
 from qtpy.QtGui import QKeySequence
 from qtpy.QtWidgets import QTabWidget, QShortcut, QMessageBox
 from qtpy.QtCore import Signal, Qt
-from ..code_editors import PythonCodeEditor as CodeEditor
+from ..code_editors import create_editor
 from .. import settings
 logging.basicConfig(level=logging.INFO, force=True)
 logger = logging.getLogger(__name__)
@@ -94,7 +94,7 @@ class TabbedEditor(QTabWidget):
             self.setTabText(index, tab_text)
 
     def add_code_editor(self, path=None):
-        editor = CodeEditor(self)
+        editor = create_editor(path, self)
         editor.modification_changed.connect(self._on_modification_changed)
         logger.info("Adding new code editor tab")
         if path is not None:

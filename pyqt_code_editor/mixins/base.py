@@ -11,10 +11,17 @@ class Base:
     
     code_editor_file_path = None
     code_editor_colors = None
+    code_editor_language = 'text'
     modification_changed = Signal(bool)
     received_focus = Signal(object)
     
     def __init__(self, *args, **kwargs):
+        # Optionally set the language. This is mainly for generic editors that
+        # need to support multiple languages. This needs to be stripped from
+        # the kwargs because it's not supported by QPlainTextEdit
+        language = kwargs.pop('language', None)
+        if language is not None:
+            self.code_editor_language = language
         super().__init__(*args, **kwargs)
         logger.info("Initializing Base")
         self.installEventFilter(self)

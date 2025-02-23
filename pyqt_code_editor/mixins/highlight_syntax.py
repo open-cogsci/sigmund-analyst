@@ -2,7 +2,7 @@ from pygments.token import Token
 from pygments.styles import get_style_by_name
 from pygments.formatters.html import HtmlFormatter
 from pygments.lexers import get_lexer_by_name
-from qtpy.QtGui import QSyntaxHighlighter, QTextCharFormat, QBrush, QColor
+from qtpy.QtGui import QSyntaxHighlighter, QTextCharFormat, QBrush, QColor, QFont
 from .. import settings
 import logging
 logging.basicConfig(level=logging.INFO, force=True)
@@ -69,7 +69,7 @@ class SyntaxHighlighter(QSyntaxHighlighter):
             bg_color_str = style_defs['bgcolor']
             fmt.setBackground(self._make_brush(bg_color_str))
         if style_defs['bold']:
-            fmt.setFontWeight(QTextCharFormat.Bold)
+            fmt.setFontWeight(QFont.Bold)
         if style_defs['italic']:
             fmt.setFontItalic(True)
         if style_defs['underline']:
@@ -154,7 +154,6 @@ class HighlightSyntax:
     """
     
     code_editor_color_scheme = 'monokai'
-    code_editor_language = 'python'
     code_editor_font_family = 'Ubuntu Mono'
     code_editor_font_size = 16    
     
