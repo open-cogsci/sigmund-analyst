@@ -94,4 +94,3 @@ def shorten_paths(paths):
     
     return results
 
-

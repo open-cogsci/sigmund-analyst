@@ -2,6 +2,7 @@ import os
 
 font_size = 16
 font_family = 'Ubuntu Mono'
+tab_width = 4
 
 # Worker
 max_completions = 5
