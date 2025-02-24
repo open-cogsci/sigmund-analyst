@@ -5,6 +5,9 @@ font_family = 'Ubuntu Mono'
 
 # Worker
 max_completions = 5
+full_completion_delay = 250
+hide_completion_delay = 500
+
 
 # Sigmund provider
 sigmund_max_context = 2000

@@ -42,7 +42,7 @@ class CompletionPopup(QListWidget):
         """
         self.clear()
         for c in completions:
-            self._completion_map[c['name']] = c['completion']
+            self._completion_map[c['name']] = c['name']
             QListWidgetItem(c['name'], self)
 
         if not completions:

@@ -3,6 +3,7 @@ from qtpy.QtCore import QTimer, Qt
 from qtpy.QtGui import QTextCursor
 from ..widgets.completion_popup import CompletionPopup
 from ..widgets.calltip_widget import CalltipWidget
+from .. import settings
 logging.basicConfig(level=logging.INFO, force=True)
 logger = logging.getLogger(__name__)
 
@@ -17,13 +18,17 @@ class Complete:
         super().__init__(*args, **kwargs)
         logger.info("Initializing Complete")
 
-        # Debounce timer (100 ms)
-        self._cm_debounce_timer = QTimer(self)
-        self._cm_debounce_timer.setSingleShot(True)
-        self._cm_debounce_timer.setInterval(250)
+        self._cm_full_completion_timer = QTimer(self)
+        self._cm_full_completion_timer.setSingleShot(True)
+        self._cm_full_completion_timer.setInterval(settings.full_completion_delay)
+        self._cm_full_completion_timer.timeout.connect(self._cm_full_completion_dispatch)
+        
+        self._cm_hide_completion_timer = QTimer(self)
+        self._cm_hide_completion_timer.setSingleShot(True)
+        self._cm_hide_completion_timer.setInterval(settings.hide_completion_delay)
+        self._cm_hide_completion_timer.timeout.connect(self._cm_hide_completion_dispatch)
+        
         self._ignore_next_completion = False
-        # Instead of directly requesting completion, we dispatch calltip vs. completion here
-        self._cm_debounce_timer.timeout.connect(self._cm_debounce_dispatch)
 
         # Track the cursor position when a request was made
         self._cm_requested_cursor_pos = None
@@ -100,13 +105,13 @@ class Complete:
     def keyPressEvent(self, event):
         """
         Updated logic to prevent completion on arrow keys:
-          • We skip calling self._cm_debounce_timer.start() if the user pressed a nav key.
+          • We skip calling self._cm_full_completion_timer.start() if the user pressed a nav key.
         """
         # When a key is pressed, we want to stop the full complete request. In case the
         # request is already sent, we also set a flag to ignore the result when it comes
         # in
-        if self._cm_debounce_timer.isActive():
-            self._cm_debounce_timer.stop()
+        if self._cm_full_completion_timer.isActive():
+            self._cm_full_completion_timer.stop()
         self._ignore_next_completion = True
         # Now process the key press
         typed_char = event.text()
@@ -178,7 +183,7 @@ class Complete:
             logger.info("User typed ')' => hiding calltip.")
             self._cm_hide_calltip()
             # Possibly also finalize arguments => request normal completion
-            self._cm_debounce_timer.start()
+            self._cm_full_completion_timer.start()
             return
     
         # 6) Detect if backspace removes '(' => hide calltip
@@ -232,12 +237,21 @@ class Complete:
             self._cm_request_calltip()
     
     
-    def _cm_debounce_dispatch(self):
+    def _cm_full_completion_dispatch(self):
         """
         Called by the debounce timer to request a full complete, which can include
         more time-consuming completions, such as AI-generated completions.
         """
         self._cm_request_completion(multiline=False, full=True)
+        
+    def _cm_hide_completion_dispatch(self):
+        """
+        Called by the debounce timer to hide a completion with a short delay after
+        a key press. This is to avoid completions from remaining visible after the
+        cursor has moved, in case no completion came in to hide or replace it.
+        """
+        if self._cm_completion_popup.isVisible():
+            self._cm_completion_popup.hide()
 
     def _cm_request_completion(self, multiline=False, full=False):
         """Send a completion request if one is not already in progress."""
@@ -313,6 +327,10 @@ class Complete:
         appears at the beginning of completion). For instance, if the
         user has typed "Hell" and the completion is "Hello world')", we
         don't want to insert "Hell" again.
+        
+        An exception is when there is exactly one character of overlap on
+        the left. This can happen for genuine completions like "Hel" and
+        "lo", where the double "l" should be preserved.
 
         This function handles both directions:
         1. Finds overlap at the end of the text before the cursor.
@@ -334,7 +352,11 @@ class Complete:
             if before_text[-i:] == completion[:i]:
                 left_overlap_size = i
                 break
-        
+        # Captures special case of exactly 1 character of left overlap, which
+        # can reflect words with double letters, such as Hel + lo = Hello,
+        # and not Helo.
+        if left_overlap_size == 1:
+            left_overlap_size = 0
         # Create a new completion without what's already typed
         new_completion = completion[left_overlap_size:]
 
@@ -377,10 +399,12 @@ class Complete:
         if not completions:
             # Even there are no completions, we still want to get full completions
             if not multiline:
-                self._cm_debounce_timer.start()
+                self._cm_full_completion_timer.start()
             self._cm_completion_popup.hide()            
 
         if multiline:
+            if not completions:
+                return
             logger.info("Inserting first multiline completion: '%s'", completions[0])
             completion_text = completions[0]['completion']
             cursor = self.textCursor()
@@ -393,9 +417,13 @@ class Complete:
             self.setTextCursor(cursor)
         else:
             logger.info("Showing completion popup with %d completions.", len(completions))
+            # stop hide completion timer if it is active
+            if self._cm_hide_completion_timer.isActive():
+                self._cm_hide_completion_timer.stop()
+            # show completions
             self._cm_completion_popup.show_completions(completions)
             if not full:
-                self._cm_debounce_timer.start()
+                self._cm_full_completion_timer.start()
 
     def _cm_calltip(self, signatures, cursor_pos):
         """
