@@ -1,4 +1,3 @@
-import os
 import logging
 from ... import settings
 
@@ -10,10 +9,12 @@ def codestral_complete(code: str, cursor_pos: int, path: str | None,
                        multiline: bool = False) -> list[str]:
     global client
 
+    if not settings.codestral_api_key:
+        return []
+
     if client is None:
         from mistralai import Mistral
         client = Mistral(api_key=settings.codestral_api_key)
-        import mistralai
 
     if len(code) < settings.codestral_min_context:
         return []
