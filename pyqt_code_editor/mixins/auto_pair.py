@@ -1,6 +1,4 @@
 from qtpy.QtCore import Qt
-from qtpy.QtGui import QTextCursor
-from qtpy.QtWidgets import QPlainTextEdit
 import logging
 logging.basicConfig(level=logging.INFO, force=True)
 
@@ -34,6 +32,11 @@ class AutoPair:
     def keyPressEvent(self, event):
         cursor = self.textCursor()
         old_pos = cursor.position()
+        
+        # Allows auto-pairing to be disabled for certain positions
+        if self._disabled_for_position(old_pos):
+            super().keyPressEvent(event)
+            return
         
         # 1) Handle backspace for removing empty pairs like (|)
         if event.key() == Qt.Key_Backspace:
@@ -150,6 +153,9 @@ class AutoPair:
             "Cursor restored to position %d",
             open_seq, close_seq, inbetween_seq, old_pos
         )
+        
+    def _disabled_for_position(self, pos):
+        return False
 
 
 class PythonAutoPair(AutoPair):
@@ -163,3 +169,23 @@ class PythonAutoPair(AutoPair):
         {"open_seq": "\"", "close_seq": "\"", "inbetween_seq": ""},
         {"open_seq": "\'", "close_seq": "\'", "inbetween_seq": ""},
     ]
+    
+    def _disabled_for_position(self, pos):
+        """
+        Returns True if 'pos' (a QTextCursor.position() in self)
+        is (likely) inside a comment in Python code by checking
+        if there's a '#' before the cursor on this line.
+        Otherwise returns False.
+        """
+        block = self.document().findBlock(pos)
+        line_text = block.text()
+        column = pos - block.position()
+    
+        # Find the first '#' in line_text
+        hash_index = line_text.find('#')
+    
+        # If a '#' is found and it's to the left of the cursor, assume comment
+        if hash_index != -1 and hash_index < column:
+            return True
+    
+        return False
