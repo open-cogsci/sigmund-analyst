@@ -20,6 +20,8 @@ shortcut_split_vertically = 'Ctrl+Shift+V'
 shortcut_quick_open_file = 'Ctrl+P'
 shortcut_symbols = 'Ctrl+R'
 shortcut_previous_tab = 'Ctrl+Shift+Tab'
+shortcut_close_all_tabs = 'Ctrl+Shift+W'
+shortcut_close_other_tabs = 'Ctrl+Alt+W'
 
 # Worker
 max_completions = 5
