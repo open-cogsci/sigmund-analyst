@@ -7,7 +7,10 @@ module_cache = {}
 
     
 def create_syntax_highlighter(language, *args, **kwargs):
-    lexer = get_lexer_by_name(language)
+    try:
+        lexer = get_lexer_by_name(language)
+    except:
+        lexer = get_lexer_by_name('markdown')
     if language not in module_cache:
         try:
             module = importlib.import_module(
