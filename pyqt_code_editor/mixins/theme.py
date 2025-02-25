@@ -2,14 +2,21 @@ from pygments.token import Token
 from .. import settings
 from ..syntax_highlighters.syntax_highlighter import create_syntax_highlighter
 import logging
+from qtpy.QtGui import QPainter, QColor
+from qtpy.QtWidgets import QPlainTextEdit
+
 logging.basicConfig(level=logging.INFO, force=True)
 logger = logging.getLogger(__name__)
 
-
 class Theme:
     """
-    Mixin for QPlainTextEdit that instantiates a PygmentsSyntaxHighlighter and
-    sets the QPlainTextEdit's background color from the associated style.
+    Mixin for QPlainTextEdit that provides theming. It handles the following:
+    
+    - Apply syntax highlighting
+    - Set a stylesheet
+    - Set code_editor_colors property so that other mixins can use it
+    - Toggle visibility of character ruler (based on settings.character_ruler)
+    - Toggle word wrap (based on settings.word_wrap)
     """
         
     def __init__(self, *args, **kwargs):
@@ -26,6 +33,7 @@ class Theme:
             'border': '#' + style.style_for_token(Token.Comment)['color']
         }
         self._apply_stylesheet()
+        self._apply_word_wrap()
 
     def refresh(self):
         super().refresh()
@@ -34,6 +42,8 @@ class Theme:
     def update_theme(self):
         super().update_theme()
         self._apply_stylesheet()
+        self._apply_word_wrap()
+        self.viewport().update()
 
     def _apply_stylesheet(self):
         stylesheet = f"""
@@ -54,3 +64,22 @@ class Theme:
             }}
         """
         self.setStyleSheet(stylesheet)
+
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        if settings.character_ruler:
+            char_width = self.fontMetrics().width("x")
+            x_pos = int(char_width * settings.character_ruler + self.contentOffset().x())
+            y_pos = self.viewport().height()
+            painter = QPainter(self.viewport())
+            painter.setPen(QColor(self.code_editor_colors['line-number']))
+            painter.drawLine(x_pos, 0, x_pos, y_pos)
+
+    def _apply_word_wrap(self):
+        """
+        Toggles word wrap mode based on settings.word_wrap
+        """
+        if settings.word_wrap:
+            self.setLineWrapMode(QPlainTextEdit.WidgetWidth)
+        else:
+            self.setLineWrapMode(QPlainTextEdit.NoWrap)

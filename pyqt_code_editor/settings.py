@@ -5,6 +5,8 @@ font_size = 16
 font_family = 'Ubuntu Mono'
 color_scheme = 'monokai'
 tab_width = 4
+word_wrap = True
+character_ruler = 80  # None to disable
 search_replace_background = "#fdff74"
 search_replace_foreground = "#000000"
 
