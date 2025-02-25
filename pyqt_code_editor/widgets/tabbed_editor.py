@@ -97,8 +97,6 @@ class TabbedEditor(QTabWidget):
         editor = create_editor(path, self)
         editor.modification_changed.connect(self._on_modification_changed)
         logger.info("Adding new code editor tab")
-        if path is not None:
-            editor.open_file(path)
         title = self._synonym(editor.code_editor_file_path)
         index = self.addTab(editor, title)
         self.setCurrentIndex(index)

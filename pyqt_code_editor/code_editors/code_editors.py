@@ -23,4 +23,7 @@ def create_editor(path, *args, **kwargs):
         editor_module_cache[language] = editor_module
     else:
         editor_module = editor_module_cache[language]        
-    return editor_module.Editor(*args, language=language, **kwargs)
+    editor = editor_module.Editor(*args, language=language, **kwargs)
+    if path is not None:
+        editor.open_file(path)
+    return editor

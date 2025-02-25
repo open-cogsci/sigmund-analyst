@@ -115,7 +115,7 @@ def _indent_inside_unclosed_call_def_or_class(code: str) -> int:
     class Test(
         object,>
         |
-    ```        
+    ```
     """
     lines = code.splitlines()
     if not lines:

@@ -1,18 +1,15 @@
 import sys
 from pyqt_code_editor.worker import manager
 from qtpy.QtWidgets import QApplication, QVBoxLayout, QWidget
-from pyqt_code_editor.code_editors import PythonCodeEditor
-
-SRC = 'pyqt_code_editor/mixins/base.py'
+from pyqt_code_editor.code_editors import create_editor
 
 
 class MainWindow(QWidget):
-    def __init__(self):
+    def __init__(self, path=None):
         super().__init__()
         self.setWindowTitle("PyQtCodeEditor")
         layout = QVBoxLayout()
-        self.editor = PythonCodeEditor()
-        self.editor.open_file(SRC)
+        self.editor = create_editor(path)
         layout.addWidget(self.editor)
         self.setLayout(layout)
 
@@ -23,6 +20,10 @@ class MainWindow(QWidget):
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    win = MainWindow()
+    # Determine path from command line if provided
+    path = None
+    if len(sys.argv) > 1:
+        path = sys.argv[1]    
+    win = MainWindow(path)
     win.show()
     sys.exit(app.exec_())

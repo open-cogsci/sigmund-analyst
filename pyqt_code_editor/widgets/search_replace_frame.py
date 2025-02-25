@@ -3,6 +3,7 @@ from qtpy.QtWidgets import (
     QLineEdit, QPushButton, QCheckBox, QLabel
 )
 from qtpy.QtCore import Qt, Signal
+from .. import settings
 
     
 class SearchReplaceFrame(QFrame):
@@ -30,7 +31,7 @@ class SearchReplaceFrame(QFrame):
             QFrame {{
                 color: {editor.code_editor_colors['text']};
                 background-color: {editor.code_editor_colors['background']};
-                font: {editor.code_editor_font_size}pt '{editor.code_editor_font_family}';
+                font: {settings.font_size}pt '{settings.font_family}';
                 padding: 8px;
             }}
             QCheckBox::indicator,

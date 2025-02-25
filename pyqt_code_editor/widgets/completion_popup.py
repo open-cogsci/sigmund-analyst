@@ -1,6 +1,7 @@
 from qtpy.QtCore import Qt
 from qtpy.QtGui import QTextCursor
 from qtpy.QtWidgets import QListWidget, QListWidgetItem
+from .. import settings
 
 
 class CompletionPopup(QListWidget):
@@ -19,7 +20,7 @@ class CompletionPopup(QListWidget):
             self.setStyleSheet(f'''QListWidget {{
                 color: {editor.code_editor_colors['text']};
                 background-color: {editor.code_editor_colors['background']};
-                font: {editor.code_editor_font_size}pt '{editor.code_editor_font_family}';
+                font: {settings.font_size}pt '{settings.font_family}';
                 border: 1px solid {editor.code_editor_colors['border']};
             }}''')
         # Use a frameless tool window so it can float above the editor
