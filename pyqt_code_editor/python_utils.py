@@ -1,5 +1,8 @@
 import re
 from . import settings
+import logging
+logging.basicConfig(level=logging.INFO, force=True)
+logger = logging.getLogger(__name__)
 
 
 def get_leading_spaces(line: str) -> int:
@@ -116,6 +119,31 @@ def _indent_inside_unclosed_call_def_or_class(code: str) -> int:
         object,>
         |
     ```
+    
+    Return after opening parenthesis should also work in nested situations
+    
+    ```
+    class Test:
+        def test(>
+            |
+    ```
+                 
+    Return after opening parenthesis with arguments should also work in nested situations
+    
+    ```
+    class Test:
+        def test(arg1,>
+                 |
+    ```
+                 
+    Return after opening parenthesis with arguments should also work in nested situations
+    
+    ```
+    class Test:
+        def test(
+            arg1,>
+            |
+    ```
     """
     lines = code.splitlines()
     if not lines:
@@ -145,9 +173,11 @@ def _indent_inside_unclosed_call_def_or_class(code: str) -> int:
     # Collect text after '(' in that line
     text_after_paren = open_line[col_idx + 1:].rstrip()
 
-    # If there's no text after '(' on the same line, just ind by tab
+    # If there's no text after '(' on the same line, just indent by tab
     if not text_after_paren:
-        return settings.tab_width
+        # Get indentation of open_line
+        open_line_indent = len(open_line) - len(open_line.lstrip())
+        return open_line_indent + settings.tab_width
 
     # Otherwise, align with the first non-whitespace character after '('
     prefix = open_line[: col_idx + 1]
@@ -282,6 +312,22 @@ def _indent_after_block_opener(code: str) -> int:
     finally:>
         |
     ```
+               
+    Indent after function definition should also work in nested situations:
+        
+    ```
+    class Test:
+        def test():>
+            |
+    ```
+               
+    Indent after if should also work in nested situations:
+        
+    ```
+    def test():
+        if x == y:>
+            |
+    ```
     """
     BLOCK_KEYWORDS = (
         "def", "class", "if", "elif", "else", "while", 
@@ -409,6 +455,31 @@ def _indent_inside_uncloded_list_tuple_set_or_dict(code: str) -> int:
         key1:val1,>
         |
     ```
+        
+    Return after opening of list should also work in nested situations:
+    
+    ```
+    def test():
+        l = [>
+             |
+    ```
+    
+    Return after opening of list with one or more elements should also work in nested situations:
+    
+    ```
+    def test():
+        l = [item1,>
+             |
+    ```
+    
+    Return after opening of list with one or more elements on the next line should also work in nested situations:
+    
+    ```
+    def test():
+        l = [
+            item1,>
+            |
+    ```        
     """
     lines = code.split('\n')
     if not lines:
@@ -581,6 +652,7 @@ def python_auto_indent(code: str) -> int:
 
     # 1. ends with colon => block opener
     if last_line.endswith(":"):
+        logging.info('indent after block opener')
         return _indent_after_block_opener(code)
 
     # 2. unmatched '(' => function call/def or tuple
@@ -596,14 +668,18 @@ def python_auto_indent(code: str) -> int:
                 preceding_char = code[preceding_idx]
                 # If preceding char is alnum or _, treat as function call/def
                 if preceding_char.isalnum() or preceding_char == "_":
+                    logging.info("indent as unclosed call/def")
                     return _indent_inside_unclosed_call_def_or_class(code)
                 else:
+                    logging.info("indent as unclosed iterable")
                     return _indent_inside_uncloded_list_tuple_set_or_dict(code)
             else:
+                logging.info("indent as unclosed iterable")
                 # Nothing precedes '(' => treat as tuple
                 return _indent_inside_uncloded_list_tuple_set_or_dict(code)
         else:
             # '(' is at index 0 or not found
+            logging.info("indent as unclosed iterable")
             return _indent_inside_uncloded_list_tuple_set_or_dict(code)
 
     # 3. unmatched '[' or '{'
@@ -612,10 +688,12 @@ def python_auto_indent(code: str) -> int:
     open_brace_count = code.count("{")
     close_brace_count = code.count("}")
     if (open_square_count > close_square_count) or (open_brace_count > close_brace_count):
+        logging.info("indent as unclosed iterable")
         return _indent_inside_uncloded_list_tuple_set_or_dict(code)
 
     # 4. just closed a bracket => after bracket
     if last_line.endswith(("]", "}", ")")):
+        logging.info('indent as after iterable')
         return _indent_after_list_tuple_set_or_dict(code)
 
     # 5. fallback => preserve current line indent
