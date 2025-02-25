@@ -125,8 +125,6 @@ class LineNumber:
     
         # Starting Y coordinate of the current block
         top = self.blockBoundingGeometry(block).translated(self.contentOffset()).top()
-        # The bottom of this block
-        bottom = top + self.blockBoundingRect(block).height()
     
         # We'll keep iterating until we run out of visible blocks
         viewport_rect = self.viewport().rect()
@@ -147,8 +145,7 @@ class LineNumber:
                 )
                 self._line_rects[block_number] = line_rect
             block = block.next()
-            top = bottom
-            bottom = top + rect_height
+            top += rect_height
             block_number += 1      
 
     def lineNumberAreaPaintEvent(self, event):
@@ -158,10 +155,10 @@ class LineNumber:
         """
         self._update_line_number_rects()
         painter = QPainter(self.lineNumberArea)
-    
-        # Fill background using the widget's palette
-        painter.fillRect(event.rect(), self.lineNumberArea.palette().base())
-    
+        base_color = self.lineNumberArea.palette().base()
+        text_color = self.lineNumberArea.palette().text().color()
+        align_top_right = Qt.AlignTop | Qt.AlignRight
+        painter.fillRect(event.rect(), base_color)
         for block_number, line_rect in self._line_number_rects.items():
             if line_rect.intersects(event.rect()):
                 # Convert zero-based block_number to 1-based for display
@@ -174,9 +171,8 @@ class LineNumber:
                     painter.setPen(annotation['color'])
                 else:
                     text_str = str(line_num)
-                    painter.setPen(self.lineNumberArea.palette().text().color())
-                painter.drawText(line_rect, Qt.AlignRight | Qt.AlignVCenter,
-                                 text_str)
+                    painter.setPen(text_color)
+                painter.drawText(line_rect, align_top_right, text_str)
             
     def mouseMoveEvent(self, event):
         """
