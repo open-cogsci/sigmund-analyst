@@ -12,7 +12,7 @@ class Base:
     code_editor_file_path = None
     code_editor_colors = None
     code_editor_language = 'text'
-    modification_changed = Signal(bool)
+    modification_changed = Signal(object, bool)
     received_focus = Signal(object)
     
     def __init__(self, *args, **kwargs):
@@ -114,7 +114,7 @@ class Base:
         logger.info(f'modified: {modified}')
         self.document().setModified(modified)
         self.modified = modified
-        self.modification_changed.emit(modified)
+        self.modification_changed.emit(self, modified)
 
     def update_theme(self):
         """Mixins can implement this to update the theme in response to font changes

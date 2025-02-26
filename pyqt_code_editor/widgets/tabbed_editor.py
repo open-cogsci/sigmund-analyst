@@ -5,7 +5,7 @@ from qtpy.QtWidgets import QTabWidget, QShortcut, QMessageBox, QMenu, QStyle, \
     QApplication, QTabBar
 from qtpy.QtCore import Signal, Qt, QMimeData, QPoint, QByteArray, QDataStream
 from ..code_editors import create_editor
-from .. import settings
+from .. import settings, utils
 logging.basicConfig(level=logging.INFO, force=True)
 logger = logging.getLogger(__name__)
 
@@ -113,8 +113,7 @@ class TabbedEditor(QTabWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         logger.info("TabbedEditor created")
-        self._synonyms = {}
-        self.setTabsClosable(True)
+        self._synonyms = {}        
         self.tabCloseRequested.connect(self.on_tab_close_requested)
 
         # Existing shortcuts
@@ -148,6 +147,7 @@ class TabbedEditor(QTabWidget):
         self.tabBar().setContextMenuPolicy(Qt.CustomContextMenu)
         self.tabBar().customContextMenuRequested.connect(
             self._on_tabbar_context_menu)
+        self.setTabsClosable(True)
         
     def relabel_tabs(self, synonyms):
         self._synonyms = synonyms
@@ -217,22 +217,39 @@ class TabbedEditor(QTabWidget):
             self.setCurrentIndex(index)
             self.widget(index).setFocus()
             
-    def _on_modification_changed(self, changed):
-        for index in range(self.count()):
-            editor = self.widget(index)
-            tab_text = self.tabText(index)
-            if editor.modified and not tab_text.endswith(' *'):
-                tab_text += ' *'
-            elif not editor.modified and tab_text.endswith(' *'):
-                tab_text = tab_text[:-1]
-            self.setTabText(index, tab_text)
+    def _on_modification_changed(self, editor, changed):
+        index = self.indexOf(editor)
+        tab_text = self.tabText(index)
+        if editor.modified and not tab_text.endswith(' *'):
+            tab_text += ' *'
+        elif not editor.modified and tab_text.endswith(' *'):
+            tab_text = tab_text[:-1]
+        self.setTabText(index, tab_text)
+        
+    def _on_file_name_changed(self, editor, from_path, to_path):
+        """When a file name has changed in such a way that the language has also
+        changed, then we close and reopen the editor to make sure that the editor
+        type is correct.
+        """
+        from_language = utils.guess_language_from_path(from_path)
+        to_language = utils.guess_language_from_path(to_path)
+        if from_language == to_language:
+            return
+        logger.info(f'language changed from {from_language} to {to_language}')
+        index = self.indexOf(editor)
+        self.removeTab(index)
+        self.add_code_editor(to_path, index=index)
 
-    def add_code_editor(self, path=None):
+    def add_code_editor(self, path=None, index=None):
         editor = create_editor(path, self)
         editor.modification_changed.connect(self._on_modification_changed)
+        editor.file_name_changed.connect(self._on_file_name_changed)
         logger.info("Adding new code editor tab")
         title = self._synonym(editor.code_editor_file_path)
-        index = self.addTab(editor, title)
+        if index is None:
+            index = self.addTab(editor, title)
+        else:
+            self.insertTab(index, editor, title)        
         self.setCurrentIndex(index)
         return editor
         
@@ -273,13 +290,13 @@ class TabbedEditor(QTabWidget):
         menu.exec_(self.tabBar().mapToGlobal(pos))
         
     def dragEnterEvent(self, event):
-        if event.mimeData().hasFormat("application/x-tabdata"):
+        if event.mimeData().hasFormat("application/x-tabdata") or event.mimeData().hasUrls():
             event.acceptProposedAction()
         else:
             event.ignore()
 
     def dragMoveEvent(self, event):
-        if event.mimeData().hasFormat("application/x-tabdata"):
+        if event.mimeData().hasFormat("application/x-tabdata") or event.mimeData().hasUrls():
             # We can figure out which tab index we're hovering over
             # to show an appropriate "insertion" indicator.
             # For example, highlight the tab or something similar.
@@ -289,6 +306,12 @@ class TabbedEditor(QTabWidget):
             event.ignore()
 
     def dropEvent(self, event):
+        # If a file is dropped, open it in a new tab
+        if event.mimeData().hasUrls():
+            for url in event.mimeData().urls():
+                path = url.toLocalFile()
+                self.add_code_editor(path)
+        
         if not event.mimeData().hasFormat("application/x-tabdata"):
             event.ignore()
             return

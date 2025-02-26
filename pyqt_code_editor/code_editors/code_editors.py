@@ -15,7 +15,7 @@ def create_editor(path, *args, **kwargs):
         try:
             editor_module = importlib.import_module(
                 f".languages.{language}", package=__package__)
-        except ImportError as e:
+        except ImportError:
             from .languages import generic as editor_module
             logger.info(f'failed to load editor module for {language}, falling back to generic')
         else:

@@ -1,3 +1,4 @@
+import os
 from qtpy.QtWidgets import QApplication, QShortcut, QWidget, QHBoxLayout, QFileDialog
 from qtpy.QtGui import QKeySequence
 from qtpy.QtCore import Qt
@@ -70,12 +71,9 @@ class EditorPanel(QWidget):
     
     def select_and_open_file(self):
         path, _ = QFileDialog.getOpenFileName(
-            self,
-            "Open File",
-            "",
-            "All Files (*.*)"
-        )
+            self, "Open File", settings.current_folder, "All Files (*.*)")
         if path:
+            settings.current_folder = os.path.dirname(path)
             self.open_file(path)
             
     def _keep_track_of_active_editor(self, editor):

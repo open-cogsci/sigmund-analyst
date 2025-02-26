@@ -1,8 +1,10 @@
+import os
 import logging
 import chardet
 from pathlib import Path
-from qtpy.QtCore import QFileSystemWatcher
+from qtpy.QtCore import QFileSystemWatcher, Signal
 from qtpy.QtWidgets import QMessageBox, QFileDialog
+from .. import settings
 logging.basicConfig(level=logging.INFO, force=True)
 logger = logging.getLogger(__name__)
 
@@ -15,6 +17,8 @@ class FileLink:
     A QFileSystemWatcher monitors the currently opened file. If the file is
     changed on disk, the user is prompted to possibly reload. (See _on_file_changed.)
     """
+    file_saved = Signal(object, str)
+    file_name_changed = Signal(object, str, str)
     code_editor_file_path = None  # str or None
     code_editor_encoding = None   # str or None
     _file_watcher = None          # QFileSystemWatcher or None
@@ -73,13 +77,13 @@ class FileLink:
             self.save_file_as()
             return
         if not self.code_editor_encoding:
-            # If no encoding is set, default again to UTF-8
-            self.code_editor_encoding = "utf-8"
+            self.code_editor_encoding = settings.default_encoding
         path = Path(self.code_editor_file_path)
         self._saving = True
         with path.open("w", encoding=self.code_editor_encoding) as f:
             f.write(self.toPlainText())
         self.set_modified(False)
+        self.file_saved.emit(self, self.code_editor_encoding)
 
     def save_file_as(self, path: Path | str =  None):
         """
@@ -87,20 +91,23 @@ class FileLink:
         If no path is provided, the user asked to choose.
         """
         if path is None:
-            suggested_name = "untitled.txt"
+            if self.code_editor_file_path is None:
+                suggested_name = os.path.join(settings.current_folder,
+                                              settings.default_filename)
+            else:
+                suggested_name = self.code_editor_file_path
             path, _ = QFileDialog.getSaveFileName(
-                self,
-                "Save As",
-                suggested_name,
-                "All Files (*.*)"
-            )
+                self, "Save As", suggested_name, "All Files (*.*)")
             if not path:
                 return
+        old_path = self.code_editor_encoding
+        settings.current_folder = os.path.dirname(path)
         self.code_editor_file_path = str(path)
         self.save_file()
         # Update internal pointers
         self._watch_file(path)
         self.set_modified(False)
+        self.file_name_changed.emit(self, old_path, self.code_editor_file_path)
 
     def _watch_file(self, path: Path):
         """Set up the QFileSystemWatcher to watch the newly opened or saved file."""

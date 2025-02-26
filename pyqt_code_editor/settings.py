@@ -10,6 +10,12 @@ character_ruler = 80  # None to disable
 search_replace_background = "#fdff74"
 search_replace_foreground = "#000000"
 
+# The current folder is the home folder by default, but will be updated as the
+# user saves and opens files.
+current_folder = os.path.expanduser('~')
+default_filename = 'untitled.txt'
+default_encoding = 'utf-8'
+
 # Keyboard shortcuts
 shortcut_move_line_up = 'Alt+Up'
 shortcut_move_line_down = 'Alt+Down'
