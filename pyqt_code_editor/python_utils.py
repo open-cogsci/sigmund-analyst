@@ -51,8 +51,68 @@ def parse_brackets(code: str):
     
     return bracket_stack, bracket_closings
     
+    
+def _get_unclosed_open_idx(code : str, open_char : str,
+                           close_char : str) -> int | None:
+    """Returns the index of the last unclosed unopening character, such as an
+    opening parenthesis, or None if no unclosed opening character was found.
+    """
+    # We only consider code from the end of the last code comment or the last
+    # quote, whatever comes last. This is a cheap way to avoid the auto indenter
+    # from being confused by parentheses in strings or comments.                 
+    last_quote = max(code.rfind("'"), code.rfind('"'))
+    last_comment = code.rfind('#')
+    if last_comment >= 0:
+        last_comment_end = code[last_comment:].find('\n')
+        if last_comment_end >= 0:
+            last_comment += last_comment_end
+    search_start = max(0, last_quote, last_comment)         
+    if search_start:
+        code = code[search_start:]
+    n_open_required = 1    
+    while n_open_required:
+        close_idx = code.rfind(close_char)
+        open_idx = code.rfind(open_char)
+        if close_idx < 0 and open_idx < 0:
+            break
+        if open_idx > close_idx:
+            n_open_required -= 1
+            code = code[:open_idx]
+        else:
+            n_open_required += 1
+            code = code[:close_idx]
+    if open_idx < 0:
+        return 0
+    return open_idx + search_start
 
-def _indent_inside_unclosed_call_def_or_class(code: str) -> int:
+
+def _line_col_from_idx(full_text, char_index):
+    """
+    Return the 0-based (line, column) pair in `full_text` for the given `char_index`.
+    If char_index is out of range, this function raises an IndexError.
+    """
+    if not (0 <= char_index < len(full_text)):
+        raise IndexError("char_index out of range.")
+
+    line = 0
+    column = 0
+    idx = 0
+
+    for ch in full_text:
+        if idx == char_index:
+            return (line, column)
+        if ch == '\n':
+            line += 1
+            column = 0
+        else:
+            column += 1
+        idx += 1
+
+    # If char_index matches len(full_text)-1, return the final position:
+    return (line, column)    
+    
+
+def _indent_inside_unclosed_call_def_or_class(code: str, char_idx : int) -> int:
     """
     Return after opening parenthesis as part of function call should trigger indent
     
@@ -144,41 +204,39 @@ def _indent_inside_unclosed_call_def_or_class(code: str) -> int:
             arg1,>
             |
     ```
+            
+    Return after opening parenthesis should also work with irrelevant parentheses
+    
+    ```
+    # 1) a list item
+    class Test:
+        def test(>
+            |
+    ```
+                       
+    Return after opening parenthesis should also work with irrelevant parentheses
+    
+    ```
+    # (1 a list item
+    class Test:
+        def test(>
+            |
+    ```            
     """
     lines = code.splitlines()
     if not lines:
         return 0
-
-    # Count unclosed parentheses and track last open parenthesis position
-    open_count = code.count('(')
-    close_count = code.count(')')
-    if open_count <= close_count:
-        return 0
-
-    bracket_stack, _ = parse_brackets(code)
-
-    # Find the last open '(' in bracket_stack
-    last_open_paren = None
-    for (b_char, line_idx, col_idx) in reversed(bracket_stack):
-        if b_char == '(':
-            last_open_paren = (line_idx, col_idx)
-            break
     
-    if not last_open_paren:
-        return 0
-
-    line_idx, col_idx = last_open_paren
+    line_idx, col_idx = _line_col_from_idx(code, char_idx)
+    # Get the line where the last unclosed parenthesis is
     open_line = lines[line_idx]
-
     # Collect text after '(' in that line
     text_after_paren = open_line[col_idx + 1:].rstrip()
-
     # If there's no text after '(' on the same line, just indent by tab
     if not text_after_paren:
         # Get indentation of open_line
         open_line_indent = len(open_line) - len(open_line.lstrip())
         return open_line_indent + settings.tab_width
-
     # Otherwise, align with the first non-whitespace character after '('
     prefix = open_line[: col_idx + 1]
     after_paren_offset = 0
@@ -229,6 +287,23 @@ def _indent_after_block_opener(code: str) -> int:
                object2):>
         |
     ```
+                                                                       
+    Return after function definition should also work with irrelevant parentheses
+    
+    ```
+    # 1) a list item
+    class Test:
+        def test():>
+            |
+    ```
+                       
+    Return after function definition should also work with irrelevant parentheses
+    
+    ```
+    # (1 a list item
+    class Test:
+        def test():>
+            |                                                                       
     
     Return after colon after while should trigger indent:
         
@@ -366,7 +441,7 @@ def _indent_after_block_opener(code: str) -> int:
     return block_opener_indent + settings.tab_width
     
     
-def _indent_inside_uncloded_list_tuple_set_or_dict(code: str) -> int:
+def _indent_inside_uncloded_list_tuple_set_or_dict(code: str, char_idx: int) -> int:
     """
     Return after opening of list should trigger matching indent to first element
     
@@ -484,23 +559,9 @@ def _indent_inside_uncloded_list_tuple_set_or_dict(code: str) -> int:
     lines = code.split('\n')
     if not lines:
         return 0
-
-    bracket_stack, _ = parse_brackets(code)
-
-    # Find last unclosed bracket
-    last_open = None
-    open_brackets = {'(': ')', '[': ']', '{': '}'}
-    for b_char, l_idx, c_idx in reversed(bracket_stack):
-        if b_char in open_brackets:
-            last_open = (b_char, l_idx, c_idx)
-            break
-
-    if not last_open:
-        # no unclosed bracket
-        return 0
-
-    bracket_char, bracket_line_idx, bracket_col_idx = last_open
-    bracket_line = lines[bracket_line_idx]
+    bracket_line_idx, bracket_col_idx = _line_col_from_idx(code, char_idx)
+    # Get the line where the last unclosed parenthesis is
+    bracket_line = lines[bracket_line_idx]            
     bracket_line_indent = get_leading_spaces(bracket_line)
 
     # Check text after bracket on same line
@@ -534,7 +595,7 @@ def _indent_inside_uncloded_list_tuple_set_or_dict(code: str) -> int:
             return bracket_col_idx + 1
 
 
-def _indent_after_list_tuple_set_or_dict(code: str) -> int:
+def _indent_after_list_tuple_set_or_dict(code: str, bracket_stack, bracket_closings) -> int:
     """
     Return after closing of a single-line list should not change indentation.
     
@@ -595,17 +656,23 @@ def _indent_after_list_tuple_set_or_dict(code: str) -> int:
          key2: val2}>
     |
     ```
+            
+    Return after closing of dict should als work with trailing spaces
+    
+    ```
+    d = {key1: val1,
+         key2: val2} >
+    |
+    ```
     """
     lines = code.split('\n')
     if not lines:
         return 0
     
-    bracket_stack, bracket_closings = parse_brackets(code)
     last_line_idx = len(lines) - 1
     last_line = lines[last_line_idx]
     last_line_indent = get_leading_spaces(last_line)
-
-    if last_line and last_line[-1] in (')', ']', '}'):
+    if last_line and last_line.rstrip()[-1] in (')', ']', '}'):
         # We closed a bracket
         if last_line_idx in bracket_closings:
             open_line_idx, open_line_indent, open_bracket = bracket_closings[last_line_idx]
@@ -621,8 +688,8 @@ def _indent_after_list_tuple_set_or_dict(code: str) -> int:
     else:
         # no bracket close => no change
         return last_line_indent
-
-    
+        
+            
 def python_auto_indent(code: str) -> int:
     """
     As fallback, should preserve indentation of previous line.
@@ -641,6 +708,30 @@ def python_auto_indent(code: str) -> int:
     >
     |
     ```
+             
+    Should dedent after return
+    
+    ```
+    def test():
+        return>
+    |
+    ```
+    
+    Should not be affected by irrelevant whitespace
+
+    ```
+    # 1) list item
+    x = 1>
+    |
+    ```
+             
+    Should not be affected by irrelevant whitespace
+
+    ```
+    # (1 list item
+    x = 1>
+    |
+    ```
     """
     lines = code.splitlines()
     # If code ends with a newline => cursor is on a fresh line
@@ -654,49 +745,46 @@ def python_auto_indent(code: str) -> int:
     if last_line.endswith(":"):
         logging.info('indent after block opener')
         return _indent_after_block_opener(code)
-
+            
     # 2. unmatched '(' => function call/def or tuple
-    open_paren_count = code.count("(")
-    close_paren_count = code.count(")")
-    if open_paren_count > close_paren_count:
-        last_paren_idx = code.rfind("(")
-        if last_paren_idx > 0:
-            preceding_idx = last_paren_idx - 1
-            while preceding_idx >= 0 and code[preceding_idx].isspace():
-                preceding_idx -= 1
-            if preceding_idx >= 0:
-                preceding_char = code[preceding_idx]
-                # If preceding char is alnum or _, treat as function call/def
-                if preceding_char.isalnum() or preceding_char == "_":
-                    logging.info("indent as unclosed call/def")
-                    return _indent_inside_unclosed_call_def_or_class(code)
-                else:
-                    logging.info("indent as unclosed iterable")
-                    return _indent_inside_uncloded_list_tuple_set_or_dict(code)
+    last_paren_idx_tuple = _get_unclosed_open_idx(code, '(', ')')
+    if last_paren_idx_tuple:
+        preceding_idx = last_paren_idx_tuple - 1
+        while preceding_idx >= 0 and code[preceding_idx].isspace():
+            preceding_idx -= 1
+        if preceding_idx >= 0:
+            preceding_char = code[preceding_idx]
+            # If preceding char is alnum or _, treat as function call/def
+            if preceding_char.isalnum() or preceding_char == "_":
+                logging.info("indent as unclosed call/def")
+                return _indent_inside_unclosed_call_def_or_class(
+                    code, last_paren_idx_tuple)
             else:
-                logging.info("indent as unclosed iterable")
-                # Nothing precedes '(' => treat as tuple
-                return _indent_inside_uncloded_list_tuple_set_or_dict(code)
-        else:
-            # '(' is at index 0 or not found
-            logging.info("indent as unclosed iterable")
-            return _indent_inside_uncloded_list_tuple_set_or_dict(code)
+                logging.info("indent as unclosed tuple")
+                return _indent_inside_uncloded_list_tuple_set_or_dict(
+                    code, last_paren_idx_tuple)
 
     # 3. unmatched '[' or '{'
-    open_square_count = code.count("[")
-    close_square_count = code.count("]")
-    open_brace_count = code.count("{")
-    close_brace_count = code.count("}")
-    if (open_square_count > close_square_count) or (open_brace_count > close_brace_count):
-        logging.info("indent as unclosed iterable")
-        return _indent_inside_uncloded_list_tuple_set_or_dict(code)
+    last_paren_idx_list = _get_unclosed_open_idx(code, '[', ']')
+    last_paren_idx_dict = _get_unclosed_open_idx(code, '{', '}')
+    char_idx = max(last_paren_idx_list, last_paren_idx_dict)
+    if char_idx:
+        logging.info("indent as unclosed list, dict, or set")
+        return _indent_inside_uncloded_list_tuple_set_or_dict(code, char_idx)
 
     # 4. just closed a bracket => after bracket
+    bracket_stack, bracket_closings = parse_brackets(code)
     if last_line.endswith(("]", "}", ")")):
         logging.info('indent as after iterable')
-        return _indent_after_list_tuple_set_or_dict(code)
+        return _indent_after_list_tuple_set_or_dict(
+            code, bracket_stack, bracket_closings)
 
-    # 5. fallback => preserve current line indent
+    # 5. Check if the current line is a dedent keyword
     current_line_full = lines[-1]
     leading_spaces = get_leading_spaces(current_line_full)
+    if current_line_full.strip() in ('return', 'break', 'continue'):
+        return max(0, leading_spaces - settings.tab_width)
+                     
+    # 6. fallback => preserve current line indent
+    logging.info('indent fallback to current line')
     return leading_spaces
