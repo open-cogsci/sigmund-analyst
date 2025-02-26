@@ -13,9 +13,9 @@ from qtpy.QtWidgets import (
     QVBoxLayout,
     QCheckBox
 )
-from qtpy.QtCore import Qt, QDir, QModelIndex, QSortFilterProxyModel
+from qtpy.QtCore import Qt, QDir, QModelIndex, QSortFilterProxyModel, QUrl
 from qtpy.QtWidgets import QFileSystemModel
-from qtpy.QtGui import QKeySequence
+from qtpy.QtGui import QKeySequence, QDesktopServices
 from pathspec import PathSpec
 from pathspec.patterns.gitwildmatch import GitWildMatchPattern
 from . import QuickOpenFileDialog
@@ -275,15 +275,15 @@ class ProjectExplorer(QDockWidget):
         """Build and show a context menu on right-click."""
         proxy_index = self._tree_view.indexAt(pos)
         source_index = self._filter_proxy.mapToSource(proxy_index)
-
+    
         menu = QMenu(self)
-
+    
         if not source_index.isValid():
-            # Clicked on empty space:
+            # Clicked on empty space, same as before
             new_file_action = menu.addAction("New File…")
             new_folder_action = menu.addAction("New Folder…")
             chosen_action = menu.exec_(self._tree_view.mapToGlobal(pos))
-
+    
             if chosen_action == new_file_action:
                 root_path = self._model.rootPath()
                 if os.path.isdir(root_path):
@@ -292,26 +292,34 @@ class ProjectExplorer(QDockWidget):
                 root_path = self._model.rootPath()
                 if os.path.isdir(root_path):
                     self._create_new_folder(root_path)
-
+    
         else:
             path = self._model.filePath(source_index)
             is_file = os.path.isfile(path)
-
+    
             if is_file:
                 # Right-clicked on a file
                 open_action = menu.addAction("Open")
+                open_sys_action = menu.addAction("Open containing folder")
                 rename_action = menu.addAction("Rename…")
                 delete_action = menu.addAction("Delete")
-
+    
                 menu.addSeparator()
                 cut_action = menu.addAction("Cut")
                 copy_action = menu.addAction("Copy")
                 paste_action = menu.addAction("Paste")
                 paste_action.setEnabled(self._clipboard_source_path is not None)
-
+    
                 chosen_action = menu.exec_(self._tree_view.mapToGlobal(pos))
                 if chosen_action == open_action:
                     self._editor_panel.open_file(path)
+                elif chosen_action == open_sys_action:
+                    # Open the file's parent folder
+                    containing_folder = os.path.dirname(path)
+                    try:
+                        QDesktopServices.openUrl(QUrl.fromLocalFile(containing_folder))
+                    except Exception as e:
+                        QMessageBox.warning(self, "Error", f"Failed to open folder:\n{str(e)}")
                 elif chosen_action == rename_action:
                     self._rename_file_or_folder(path)
                 elif chosen_action == delete_action:
@@ -324,25 +332,33 @@ class ProjectExplorer(QDockWidget):
                     self._clipboard_source_path = path
                 elif chosen_action == paste_action:
                     self._paste_file_or_folder(path)
-
+    
             else:
                 # Right-clicked on a folder
                 open_action = menu.addAction("Open")
+                open_sys_action = menu.addAction("Open folder")
                 new_file_action = menu.addAction("New File…")
                 new_folder_action = menu.addAction("New Folder…")
                 rename_action = menu.addAction("Rename…")
                 delete_action = menu.addAction("Delete")
-
+    
                 menu.addSeparator()
                 cut_action = menu.addAction("Cut")
                 copy_action = menu.addAction("Copy")
                 paste_action = menu.addAction("Paste")
                 paste_action.setEnabled(self._clipboard_source_path is not None)
-
+    
                 chosen_action = menu.exec_(self._tree_view.mapToGlobal(pos))
                 if chosen_action == open_action:
+                    # Expand in the tree if not already expanded
                     if proxy_index.isValid() and not self._tree_view.isExpanded(proxy_index):
                         self._tree_view.expand(proxy_index)
+                elif chosen_action == open_sys_action:
+                    # Open the folder in system browser
+                    try:
+                        QDesktopServices.openUrl(QUrl.fromLocalFile(path))
+                    except Exception as e:
+                        QMessageBox.warning(self, "Error", f"Failed to open folder:\n{str(e)}")
                 elif chosen_action == new_file_action:
                     self._create_new_file(path)
                 elif chosen_action == new_folder_action:
