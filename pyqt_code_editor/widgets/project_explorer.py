@@ -7,7 +7,7 @@ from qtpy.QtWidgets import (
     QFileDialog,
     QMenu,
     QMessageBox,
-    QShortcut,    
+    QShortcut,
 )
 from qtpy.QtCore import Qt, QDir, QModelIndex
 from qtpy.QtWidgets import QFileSystemModel
@@ -16,6 +16,53 @@ from . import QuickOpenFileDialog
 from .. import settings
 
 logger = logging.getLogger(__name__)
+
+class LazyQFileSystemModel(QFileSystemModel):
+    """
+    A QFileSystemModel that only fetches children for 'expanded' paths.
+    This prevents eagerly creating inotify watchers for large, collapsed directories.
+    """
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._expanded_paths = set()
+
+    def setRootPath(self, root):
+        idx = super().setRootPath(root)
+        # Ensure the root path is always considered expanded
+        if root:
+            self._expanded_paths.add(root)
+            # Force a fetch so we see the root directory contents
+            if idx.isValid() and super().canFetchMore(idx):
+                super().fetchMore(idx)
+        return idx
+
+    def notify_path_expanded(self, path):
+        self._expanded_paths.add(path)
+        # Manually trigger fetch
+        index = self.index(path)
+        if super().canFetchMore(index):
+            super().fetchMore(index)
+
+    def notify_path_collapsed(self, path):
+        if path in self._expanded_paths:
+            self._expanded_paths.remove(path)
+
+    def canFetchMore(self, index):
+        if not index.isValid():
+            return super().canFetchMore(index)
+        path = self.filePath(index)
+        # Only allow fetch if path is in expanded set
+        if path in self._expanded_paths:
+            return super().canFetchMore(index)
+        return False
+
+    def fetchMore(self, index):
+        if not index.isValid():
+            return super().fetchMore(index)
+        path = self.filePath(index)
+        # Only do the actual fetch for expanded paths
+        if path in self._expanded_paths:
+            return super().fetchMore(index)
 
 
 class ProjectExplorer(QDockWidget):
@@ -30,20 +77,27 @@ class ProjectExplorer(QDockWidget):
 
         # Main widget inside the dock
         self._tree_view = QTreeView(self)
-        self._model = QFileSystemModel(self._tree_view)
-        self._model.setRootPath(root_path or QDir.currentPath())
-        # Optionally hide filters, e.g.:
-        # self._model.setFilter(QDir.NoDotAndDotDot | QDir.AllDirs | QDir.Files)
+
+        # Use our custom LazyQFileSystemModel
+        self._model = LazyQFileSystemModel(self._tree_view)
+        display_root = root_path or QDir.currentPath()
+        self._model.setRootPath(display_root)
+
         self._tree_view.setModel(self._model)
 
-        # Controls columns
+        # Connect expanded/collapsed signals to limit watchers
+        self._tree_view.expanded.connect(self._on_expanded)
+        self._tree_view.collapsed.connect(self._on_collapsed)
+
+        # Optional: Hide columns other than the file name
         self.set_single_column_view(True)
 
-        # If a root_path was specified, set that as the visible root:
-        if root_path:
-            root_idx = self._model.index(root_path)
-            if root_idx.isValid():
-                self._tree_view.setRootIndex(root_idx)
+        # Make the root folder visible and expanded
+        root_idx = self._model.index(display_root)
+        if root_idx.isValid():
+            self._tree_view.setRootIndex(root_idx)
+            # Also expand the root so it behaves like an “expanded” folder
+            self._tree_view.expand(root_idx)
 
         # Configure QTreeView
         self._tree_view.setContextMenuPolicy(Qt.CustomContextMenu)
@@ -54,6 +108,16 @@ class ProjectExplorer(QDockWidget):
         # Shortcut for quick-open
         self._quick_open_shortcut = QShortcut(QKeySequence(settings.shortcut_quick_open_file), self)
         self._quick_open_shortcut.activated.connect(self._show_quick_open)
+
+    def _on_expanded(self, index: QModelIndex):
+        # Notify the model that this path is expanded
+        path = self._model.filePath(index)
+        self._model.notify_path_expanded(path)
+
+    def _on_collapsed(self, index: QModelIndex):
+        # Notify the model that this path is collapsed
+        path = self._model.filePath(index)
+        self._model.notify_path_collapsed(path)
 
     def set_single_column_view(self, single_column=True):
         """If single_column=True, show only the file name column with no header."""
@@ -67,7 +131,7 @@ class ProjectExplorer(QDockWidget):
             self._tree_view.setHeaderHidden(False)
             for col in range(1, 4):
                 self._tree_view.setColumnHidden(col, False)
-                
+
     def _show_quick_open(self):
         """Show a dialog with all files in the project, filtered as user types."""
         root_path = self._model.rootPath()
@@ -159,7 +223,7 @@ class ProjectExplorer(QDockWidget):
 
     def _delete_file_or_folder(self, path):
         """Delete a file or entire folder."""
-        reply = QMessageBox.question(self, "Delete", f"Delete '{path}'?", 
+        reply = QMessageBox.question(self, "Delete", f"Delete '{path}'?",
                                      QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
         if reply == QMessageBox.No:
             return
