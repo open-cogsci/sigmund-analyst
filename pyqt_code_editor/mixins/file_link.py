@@ -80,8 +80,11 @@ class FileLink:
             self.code_editor_encoding = settings.default_encoding
         path = Path(self.code_editor_file_path)
         self._saving = True
-        with path.open("w", encoding=self.code_editor_encoding) as f:
-            f.write(self.toPlainText())
+        try:
+            with path.open("w", encoding=self.code_editor_encoding) as f:
+                f.write(self.toPlainText())
+        except Exception as e:
+            QMessageBox.warning(self, "Error", f"Failed to save file:\n{str(e)}")
         self.set_modified(False)
         self.file_saved.emit(self, self.code_editor_encoding)
 
