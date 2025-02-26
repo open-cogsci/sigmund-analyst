@@ -8,6 +8,7 @@ from qtpy.QtWidgets import (
     QMenu,
     QMessageBox,
     QShortcut,
+    QInputDialog
 )
 from qtpy.QtCore import Qt, QDir, QModelIndex
 from qtpy.QtWidgets import QFileSystemModel
@@ -154,50 +155,99 @@ class ProjectExplorer(QDockWidget):
     def _show_context_menu(self, pos):
         """Build and show a context menu on right-click."""
         index = self._tree_view.indexAt(pos)
-        if not index.isValid():
-            return  # clicked on empty area
-
         menu = QMenu(self)
 
-        path = self._model.filePath(index)
-        is_file = os.path.isfile(path)
+        if not index.isValid():
+            # Clicked on empty space:
+            # We want "New File…" and "New Folder…" relative to the root folder
+            new_file_action = menu.addAction("New File…")
+            new_folder_action = menu.addAction("New Folder…")
+            chosen_action = menu.exec_(self._tree_view.mapToGlobal(pos))
 
-        open_action = menu.addAction("Open")
-        open_action.setEnabled(is_file)
+            if chosen_action == new_file_action:
+                # Use model root path
+                root_path = self._model.rootPath()
+                if os.path.isdir(root_path):
+                    self._create_new_file(root_path)
+            elif chosen_action == new_folder_action:
+                root_path = self._model.rootPath()
+                if os.path.isdir(root_path):
+                    self._create_new_folder(root_path)
 
-        new_file_action = menu.addAction("New File…")
-        rename_action = menu.addAction("Rename…")
-        delete_action = menu.addAction("Delete")
+        else:
+            path = self._model.filePath(index)
+            is_file = os.path.isfile(path)
 
-        menu.addSeparator()
-        cut_action = menu.addAction("Cut")
-        copy_action = menu.addAction("Copy")
-        paste_action = menu.addAction("Paste")
-        paste_action.setEnabled(self._clipboard_source_path is not None)
+            if is_file:
+                # Right-clicked on a file
+                open_action = menu.addAction("Open")
+                rename_action = menu.addAction("Rename…")
+                delete_action = menu.addAction("Delete")
 
-        chosen_action = menu.exec_(self._tree_view.mapToGlobal(pos))
-        if chosen_action == open_action:
-            self._editor_panel.open_file(path)
-        elif chosen_action == new_file_action:
-            self._create_new_file(os.path.dirname(path) if is_file else path)
-        elif chosen_action == rename_action:
-            self._rename_file_or_folder(path)
-        elif chosen_action == delete_action:
-            self._delete_file_or_folder(path)
-        elif chosen_action == cut_action:
-            self._clipboard_operation = 'cut'
-            self._clipboard_source_path = path
-        elif chosen_action == copy_action:
-            self._clipboard_operation = 'copy'
-            self._clipboard_source_path = path
-        elif chosen_action == paste_action:
-            self._paste_file_or_folder(path)
+                menu.addSeparator()
+                cut_action = menu.addAction("Cut")
+                copy_action = menu.addAction("Copy")
+                paste_action = menu.addAction("Paste")
+                paste_action.setEnabled(self._clipboard_source_path is not None)
+
+                chosen_action = menu.exec_(self._tree_view.mapToGlobal(pos))
+                if chosen_action == open_action:
+                    self._editor_panel.open_file(path)
+                elif chosen_action == rename_action:
+                    self._rename_file_or_folder(path)
+                elif chosen_action == delete_action:
+                    self._delete_file_or_folder(path)
+                elif chosen_action == cut_action:
+                    self._clipboard_operation = 'cut'
+                    self._clipboard_source_path = path
+                elif chosen_action == copy_action:
+                    self._clipboard_operation = 'copy'
+                    self._clipboard_source_path = path
+                elif chosen_action == paste_action:
+                    self._paste_file_or_folder(path)
+
+            else:
+                # Right-clicked on a folder
+                open_action = menu.addAction("Open")
+                new_file_action = menu.addAction("New File…")
+                new_folder_action = menu.addAction("New Folder…")
+                rename_action = menu.addAction("Rename…")
+                delete_action = menu.addAction("Delete")
+
+                menu.addSeparator()
+                cut_action = menu.addAction("Cut")
+                copy_action = menu.addAction("Copy")
+                paste_action = menu.addAction("Paste")
+                paste_action.setEnabled(self._clipboard_source_path is not None)
+
+                chosen_action = menu.exec_(self._tree_view.mapToGlobal(pos))
+                if chosen_action == open_action:
+                    # "Open" could mean different behaviors, e.g., expand folder or something else
+                    # For now, let's expand the folder:
+                    idx = self._tree_view.indexAt(pos)
+                    if idx.isValid() and not self._tree_view.isExpanded(idx):
+                        self._tree_view.expand(idx)
+                elif chosen_action == new_file_action:
+                    self._create_new_file(path)
+                elif chosen_action == new_folder_action:
+                    self._create_new_folder(path)
+                elif chosen_action == rename_action:
+                    self._rename_file_or_folder(path)
+                elif chosen_action == delete_action:
+                    self._delete_file_or_folder(path)
+                elif chosen_action == cut_action:
+                    self._clipboard_operation = 'cut'
+                    self._clipboard_source_path = path
+                elif chosen_action == copy_action:
+                    self._clipboard_operation = 'copy'
+                    self._clipboard_source_path = path
+                elif chosen_action == paste_action:
+                    self._paste_file_or_folder(path)
 
     def _create_new_file(self, folder):
         """Create a new file in the specified folder."""
         if not os.path.isdir(folder):
             return
-        # Ask user for file name
         file_name, ok = QFileDialog.getSaveFileName(self, "New File", folder)
         if not ok or not file_name:
             return
@@ -207,6 +257,21 @@ class ProjectExplorer(QDockWidget):
             logger.info(f"Created file: {file_name}")
         except Exception as e:
             QMessageBox.warning(self, "Error", f"Failed to create file:\n{str(e)}")
+
+    def _create_new_folder(self, parent_folder):
+        """Creates a new subfolder inside 'parent_folder'."""
+        if not os.path.isdir(parent_folder):
+            return
+        folder_name, ok = QInputDialog.getText(self, "New Folder", "Folder name:")
+        if not ok or not folder_name:
+            return
+
+        new_path = os.path.join(parent_folder, folder_name)
+        try:
+            os.mkdir(new_path)
+            logger.info(f"Created folder: {new_path}")
+        except Exception as e:
+            QMessageBox.warning(self, "Error", f"Failed to create folder:\n{str(e)}")
 
     def _rename_file_or_folder(self, path):
         """Rename a file or folder via an input dialog, then rename in filesystem."""
@@ -223,8 +288,12 @@ class ProjectExplorer(QDockWidget):
 
     def _delete_file_or_folder(self, path):
         """Delete a file or entire folder."""
-        reply = QMessageBox.question(self, "Delete", f"Delete '{path}'?",
-                                     QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+        reply = QMessageBox.question(
+            self, "Delete",
+            f"Delete '{path}'?",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No
+        )
         if reply == QMessageBox.No:
             return
         try:
@@ -240,7 +309,6 @@ class ProjectExplorer(QDockWidget):
         """Paste files/folders from our local 'clipboard_operation' into target_path."""
         if not self._clipboard_operation or not self._clipboard_source_path:
             return
-        # If target_path is a file, use its directory as the actual destination.
         if os.path.isfile(target_path):
             target_path = os.path.dirname(target_path)
         if not os.path.isdir(target_path):
@@ -261,6 +329,5 @@ class ProjectExplorer(QDockWidget):
         except Exception as e:
             QMessageBox.warning(self, "Error", f"Failed to {self._clipboard_operation}:\n{str(e)}")
 
-        # Clear our local clipboard
         self._clipboard_operation = None
         self._clipboard_source_path = None
