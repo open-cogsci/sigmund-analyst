@@ -8,11 +8,16 @@ from qtpy.QtWidgets import (
     QMenu,
     QMessageBox,
     QShortcut,
-    QInputDialog
+    QInputDialog,
+    QWidget,
+    QVBoxLayout,
+    QCheckBox
 )
-from qtpy.QtCore import Qt, QDir, QModelIndex
+from qtpy.QtCore import Qt, QDir, QModelIndex, QSortFilterProxyModel
 from qtpy.QtWidgets import QFileSystemModel
 from qtpy.QtGui import QKeySequence
+from pathspec import PathSpec
+from pathspec.patterns.gitwildmatch import GitWildMatchPattern
 from . import QuickOpenFileDialog
 from .. import settings
 
@@ -65,6 +70,78 @@ class LazyQFileSystemModel(QFileSystemModel):
         if path in self._expanded_paths:
             return super().fetchMore(index)
 
+class GitignoreFilterProxyModel(QSortFilterProxyModel):
+    """
+    A QSortFilterProxyModel that hides paths ignored by .gitignore (when enabled).
+    Parses .gitignore with pathspec. Also forwards hasChildren/fetchMore to the source
+    model so that folders may be expanded.
+    """
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.gitignore_enabled = False
+        self.root_folder = None
+        self.pathspec = None
+
+    def set_root_folder(self, folder):
+        """
+        Load .gitignore (if present) from 'folder' and parse it into a PathSpec.
+        Keep the folder path for computing relative paths.
+        """
+        self.root_folder = folder
+        self.pathspec = None
+        if not self.gitignore_enabled:
+            return
+
+        gitignore_path = os.path.join(folder, '.gitignore')
+        if os.path.isfile(gitignore_path):
+            try:
+                with open(gitignore_path, 'r', encoding='utf-8') as f:
+                    patterns = f.read().splitlines()
+                # Use GitWildMatchPattern to mimic .gitignore logic
+                self.pathspec = PathSpec.from_lines(GitWildMatchPattern, patterns)
+            except Exception as e:
+                logger.warning(f"Failed to parse .gitignore: {e}")
+
+    def filterAcceptsRow(self, source_row, source_parent):
+        # If not enabled or we have no pathspec, pass everything
+        if not self.gitignore_enabled or not self.pathspec:
+            return True
+
+        index = self.sourceModel().index(source_row, 0, source_parent)
+        if not index.isValid():
+            return True
+
+        source_model = self.sourceModel()
+        abs_path = source_model.filePath(index)
+        # Make sure our designated root folder is never hidden
+        if abs_path == self.root_folder:
+            return True        
+        if not self.root_folder:
+            return True
+
+        # Compute relative path from the repository root
+        rel_path = os.path.relpath(abs_path, self.root_folder)
+        # If matched by pathspec => it is ignored => filter out
+        return not self.pathspec.match_file(rel_path)
+
+    # ----------------------
+    # Overridden methods to ensure directories can still expand
+    # ----------------------
+
+    def hasChildren(self, parent):
+        """Delegate hasChildren to the source model so the tree can show expandable folders."""
+        source_index = self.mapToSource(parent)
+        return self.sourceModel().hasChildren(source_index)
+
+    def canFetchMore(self, parent):
+        """Ask the source model if it can fetch more items for lazy loading."""
+        source_index = self.mapToSource(parent)
+        return self.sourceModel().canFetchMore(source_index)
+
+    def fetchMore(self, parent):
+        """Delegate fetchMore to the source model so subfolders are properly loaded."""
+        source_index = self.mapToSource(parent)
+        self.sourceModel().fetchMore(source_index)
 
 class ProjectExplorer(QDockWidget):
 
@@ -76,49 +153,89 @@ class ProjectExplorer(QDockWidget):
         self._clipboard_operation = None  # 'cut' or 'copy'
         self._clipboard_source_path = None
 
-        # Main widget inside the dock
-        self._tree_view = QTreeView(self)
+        # Underlying LazyQFileSystemModel
+        self._model = LazyQFileSystemModel(self)
 
-        # Use our custom LazyQFileSystemModel
-        self._model = LazyQFileSystemModel(self._tree_view)
-        display_root = root_path or QDir.currentPath()
-        self._model.setRootPath(display_root)
+        # Add a filter proxy to hide items from .gitignore if enabled
+        self._filter_proxy = GitignoreFilterProxyModel(self)
+        self._filter_proxy.setSourceModel(self._model)
 
-        self._tree_view.setModel(self._model)
+        self._display_root = root_path or QDir.currentPath()
 
-        # Connect expanded/collapsed signals to limit watchers
-        self._tree_view.expanded.connect(self._on_expanded)
-        self._tree_view.collapsed.connect(self._on_collapsed)
+        # Create a container widget and layout, so we can have the treeview + an optional checkbox
+        container_widget = QWidget(self)
+        layout = QVBoxLayout(container_widget)
+        layout.setContentsMargins(0, 0, 0, 0)
+
+        # Create our TreeView and attach the proxy model
+        self._tree_view = QTreeView(container_widget)
+        self._tree_view.setModel(self._filter_proxy)
+        layout.addWidget(self._tree_view)
+
+        # Connect expanded/collapsed signals through the proxy => model
+        self._tree_view.expanded.connect(self._on_expanded_proxy)
+        self._tree_view.collapsed.connect(self._on_collapsed_proxy)
 
         # Optional: Hide columns other than the file name
         self.set_single_column_view(True)
-
-        # Make the root folder visible and expanded
-        root_idx = self._model.index(display_root)
-        if root_idx.isValid():
-            self._tree_view.setRootIndex(root_idx)
-            # Also expand the root so it behaves like an “expanded” folder
-            self._tree_view.expand(root_idx)
+        
+        # Only if .gitignore exists in the root, create the checkbox
+        gitignore_path = os.path.join(self._display_root, '.gitignore')
+        if os.path.isfile(gitignore_path):
+            # Enabled by default
+            self._gitignore_checkbox = QCheckBox("Use .gitignore", container_widget)
+            self._gitignore_checkbox.setChecked(True)
+            # Connect toggling to set_gitignore_enabled
+            self._gitignore_checkbox.toggled.connect(self._toggle_gitignore)
+            layout.addWidget(self._gitignore_checkbox)
+            self._toggle_gitignore(True)
+        else:
+            self._toggle_gitignore(False)
 
         # Configure QTreeView
         self._tree_view.setContextMenuPolicy(Qt.CustomContextMenu)
         self._tree_view.customContextMenuRequested.connect(self._show_context_menu)
         self._tree_view.doubleClicked.connect(self._on_double_click)
-        self.setWidget(self._tree_view)
+
+        # Set our container widget as the dock widget’s main widget
+        self.setWidget(container_widget)
 
         # Shortcut for quick-open
         self._quick_open_shortcut = QShortcut(QKeySequence(settings.shortcut_quick_open_file), self)
         self._quick_open_shortcut.activated.connect(self._show_quick_open)
+        
+    def _toggle_gitignore(self, enabled):
+        """Toggles the .gitignore filter on or off and refreshes the model.
+        """
+        self._filter_proxy.gitignore_enabled = enabled
+        self._model.setRootPath(self._display_root)
+        self._filter_proxy.set_root_folder(self._display_root)
+        self._filter_proxy.invalidateFilter()
+        # Make the root folder visible and expanded
+        root_idx = self._model.index(self._display_root)
+        if root_idx.isValid():
+            proxy_root_index = self._filter_proxy.mapFromSource(root_idx)
+            self._tree_view.setRootIndex(proxy_root_index)
+            # Expand the root so it behaves like an expanded folder
+            self._tree_view.expand(proxy_root_index)        
 
-    def _on_expanded(self, index: QModelIndex):
-        # Notify the model that this path is expanded
-        path = self._model.filePath(index)
-        self._model.notify_path_expanded(path)
+    def _on_expanded_proxy(self, proxy_index):
+        """
+        Convert the proxy index to the source model index and notify LazyQFileSystemModel.
+        """
+        source_index = self._filter_proxy.mapToSource(proxy_index)
+        if source_index.isValid():
+            path = self._model.filePath(source_index)
+            self._model.notify_path_expanded(path)
 
-    def _on_collapsed(self, index: QModelIndex):
-        # Notify the model that this path is collapsed
-        path = self._model.filePath(index)
-        self._model.notify_path_collapsed(path)
+    def _on_collapsed_proxy(self, proxy_index):
+        """
+        Convert the proxy index to the source model index and notify LazyQFileSystemModel.
+        """
+        source_index = self._filter_proxy.mapToSource(proxy_index)
+        if source_index.isValid():
+            path = self._model.filePath(source_index)
+            self._model.notify_path_collapsed(path)
 
     def set_single_column_view(self, single_column=True):
         """If single_column=True, show only the file name column with no header."""
@@ -135,6 +252,7 @@ class ProjectExplorer(QDockWidget):
 
     def _show_quick_open(self):
         """Show a dialog with all files in the project, filtered as user types."""
+        # Even though user sees the proxy, the root path is in the source model
         root_path = self._model.rootPath()
         dlg = QuickOpenFileDialog(
             parent=self,
@@ -143,9 +261,10 @@ class ProjectExplorer(QDockWidget):
         )
         dlg.exec_()
 
-    def _on_double_click(self, index: QModelIndex):
+    def _on_double_click(self, proxy_index: QModelIndex):
         """Open file on double-click if it's not a directory."""
-        path = self._model.filePath(index)
+        source_index = self._filter_proxy.mapToSource(proxy_index)
+        path = self._model.filePath(source_index)
         if os.path.isfile(path):
             logger.info(f"Double-click opening file: {path}")
             self._editor_panel.open_file(path)
@@ -154,18 +273,18 @@ class ProjectExplorer(QDockWidget):
 
     def _show_context_menu(self, pos):
         """Build and show a context menu on right-click."""
-        index = self._tree_view.indexAt(pos)
+        proxy_index = self._tree_view.indexAt(pos)
+        source_index = self._filter_proxy.mapToSource(proxy_index)
+
         menu = QMenu(self)
 
-        if not index.isValid():
+        if not source_index.isValid():
             # Clicked on empty space:
-            # We want "New File…" and "New Folder…" relative to the root folder
             new_file_action = menu.addAction("New File…")
             new_folder_action = menu.addAction("New Folder…")
             chosen_action = menu.exec_(self._tree_view.mapToGlobal(pos))
 
             if chosen_action == new_file_action:
-                # Use model root path
                 root_path = self._model.rootPath()
                 if os.path.isdir(root_path):
                     self._create_new_file(root_path)
@@ -175,7 +294,7 @@ class ProjectExplorer(QDockWidget):
                     self._create_new_folder(root_path)
 
         else:
-            path = self._model.filePath(index)
+            path = self._model.filePath(source_index)
             is_file = os.path.isfile(path)
 
             if is_file:
@@ -222,11 +341,8 @@ class ProjectExplorer(QDockWidget):
 
                 chosen_action = menu.exec_(self._tree_view.mapToGlobal(pos))
                 if chosen_action == open_action:
-                    # "Open" could mean different behaviors, e.g., expand folder or something else
-                    # For now, let's expand the folder:
-                    idx = self._tree_view.indexAt(pos)
-                    if idx.isValid() and not self._tree_view.isExpanded(idx):
-                        self._tree_view.expand(idx)
+                    if proxy_index.isValid() and not self._tree_view.isExpanded(proxy_index):
+                        self._tree_view.expand(proxy_index)
                 elif chosen_action == new_file_action:
                     self._create_new_file(path)
                 elif chosen_action == new_folder_action:
