@@ -223,7 +223,7 @@ class TabbedEditor(QTabWidget):
         if editor.modified and not tab_text.endswith(' *'):
             tab_text += ' *'
         elif not editor.modified and tab_text.endswith(' *'):
-            tab_text = tab_text[:-1]
+            tab_text = tab_text[:-2]
         self.setTabText(index, tab_text)
         
     def _on_file_name_changed(self, editor, from_path, to_path):
