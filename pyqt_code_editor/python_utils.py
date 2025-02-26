@@ -781,10 +781,18 @@ def python_auto_indent(code: str) -> int:
 
     # 5. Check if the current line is a dedent keyword
     current_line_full = lines[-1]
+    current_line_strip = current_line_full.strip()
     leading_spaces = get_leading_spaces(current_line_full)
-    if current_line_full.strip() in ('return', 'break', 'continue'):
+    if current_line_strip  in ('return', 'break', 'continue'):
         return max(0, leading_spaces - settings.tab_width)
+        
+    # 6. Check if the current line starts with def or class. If so then we need 
+    # to indent. This is a fallback mechanism to catch situations in which this
+    # was not properly caught by the above logic.    
+    if current_line_strip.startswith('def') or current_line_strip .startswith('class'):
+        logging.info('fallback indent as def or class')
+        return leading_spaces + settings.tab_width
                      
-    # 6. fallback => preserve current line indent
+    # 7. fallback => preserve current line indent
     logging.info('indent fallback to current line')
     return leading_spaces
