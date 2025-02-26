@@ -2,7 +2,7 @@ from pygments.token import Token
 from .. import settings
 from ..syntax_highlighters.syntax_highlighter import create_syntax_highlighter
 import logging
-from qtpy.QtGui import QPainter, QColor
+from qtpy.QtGui import QPainter, QColor, QFont, QFontMetrics
 from qtpy.QtWidgets import QPlainTextEdit
 
 logging.basicConfig(level=logging.INFO, force=True)
@@ -34,6 +34,7 @@ class Theme:
         }
         self._apply_stylesheet()
         self._apply_word_wrap()
+        self._apply_tab_width()
 
     def refresh(self):
         super().refresh()
@@ -43,6 +44,7 @@ class Theme:
         super().update_theme()
         self._apply_stylesheet()
         self._apply_word_wrap()
+        self._apply_tab_width
         self.viewport().update()
 
     def _apply_stylesheet(self):
@@ -83,3 +85,15 @@ class Theme:
             self.setLineWrapMode(QPlainTextEdit.WidgetWidth)
         else:
             self.setLineWrapMode(QPlainTextEdit.NoWrap)
+
+    def _apply_tab_width(self):
+        """Sets the tab-stop distance. This uses a QFont rather than relying on
+        the standard font metrics, because these are not immediately applied on
+        initialization.
+        """
+        font = QFont()
+        font.setFamily(settings.font_family)
+        font.setPointSize(settings.font_size)
+        self.setTabStopDistance(
+            settings.tab_width * QFontMetrics(font).horizontalAdvance(' '))
+     
