@@ -67,9 +67,9 @@ class Shortcuts:
             cursor = self.textCursor()
         original_pos = cursor.position()
 
-        cursor.movePosition(QTextCursor.StartOfLine)
+        cursor.movePosition(QTextCursor.StartOfBlock)
         start = cursor.position()
-        cursor.movePosition(QTextCursor.EndOfLine)
+        cursor.movePosition(QTextCursor.EndOfBlock)
         end = cursor.position()
 
         # Restore cursor
