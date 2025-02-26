@@ -137,6 +137,13 @@ class AutoPair:
         
         # We'll remember where the user ended up (right after open_seq).
         old_pos = c.position()
+        if inbetween_seq == '\n':
+            # Get indentation level of block after cursor
+            block = self.document().findBlock(old_pos)
+            block_text = block.text()
+            indent = block_text[:len(block_text) - len(block_text.lstrip())]        
+            inbetween_seq = '\n' + indent
+        # Insert the close_seq and inbetween_seq, indented to the same level as the block
         c.beginEditBlock()
         
         # Insert in-between text, then the closing
