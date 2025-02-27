@@ -140,6 +140,11 @@ class Complete:
                 event.accept()
                 return
             # Otherwise, fall through to normal handling below
+
+        # We hide the completion timer with a short delay. This is to make sure
+        # that the completion popup doesn't linger after key presses.            
+        if not self._cm_hide_completion_timer.isActive():
+            self._cm_hide_completion_timer.start()
     
         # 2) Detect Ctrl+Space => multiline completion
         if (event.key() == Qt.Key_Space) and (event.modifiers() & Qt.ControlModifier):
