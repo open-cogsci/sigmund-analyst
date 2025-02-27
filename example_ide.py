@@ -4,7 +4,7 @@ from qtpy.QtWidgets import QMainWindow, QApplication, QShortcut, QMessageBox
 from qtpy.QtCore import Qt, QDir
 from qtpy.QtGui import QKeySequence
 from pyqt_code_editor.widgets import EditorPanel, ProjectExplorer, \
-    QuickOpenFileDialog
+    QuickOpenFileDialog, FindInFiles
 from pyqt_code_editor.worker import manager
 from pyqt_code_editor import settings
 
@@ -33,6 +33,20 @@ class MainWindow(QMainWindow):
         self._open_folder_shortcut = QShortcut(
             QKeySequence(settings.shortcut_open_folder), self)
         self._open_folder_shortcut.activated.connect(self._open_folder)        
+        self._find_in_files_shortcut = QShortcut(
+            QKeySequence(settings.shortcut_find_in_files), self)
+        self._find_in_files_shortcut.activated.connect(self._find_in_files)
+        
+    def _find_in_files(self):
+        file_list = []
+        for project_explorer in self._project_explorers:
+            file_list.extend(project_explorer.list_files())
+        find_in_files = FindInFiles(file_list, parent=self)
+        find_in_files.open_file_requested.connect(self._open_found_file)
+        self.addDockWidget(Qt.RightDockWidgetArea, find_in_files)
+        
+    def _open_found_file(self, path, line_number):
+        self._editor_panel.open_file(path, line_number)
 
     def _open_project_explorer(self, path):
         project_explorer = ProjectExplorer(self._editor_panel, path, parent=self)

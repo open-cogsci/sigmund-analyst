@@ -89,7 +89,7 @@ class EditorPanel(QWidget):
         self._active_editor = editor
         self._active_tab_widget = self._active_editor.parent().parent()
     
-    def open_file(self, path=None):
+    def open_file(self, path=None, line_number=None):
         if path is not None:
             # Don't allow the same file to be opened multiple times
             for editor in self.central_splitter.editors():
@@ -99,6 +99,8 @@ class EditorPanel(QWidget):
                     tab_widget = editor.parent().parent()
                     tab_widget.setCurrentWidget(editor)
                     editor.setFocus()
+                    if line_number is not None:
+                        editor.jump_to_line(line_number)
                     return
         logger.info(f"Opening file from {path}.")
         active_tab_widget = self.active_tab_widget()
@@ -112,6 +114,8 @@ class EditorPanel(QWidget):
         editor = active_tab_widget.add_code_editor(path)
         editor.received_focus.connect(self._keep_track_of_active_editor)
         editor.setFocus()
+        if line_number is not None:
+            editor.jump_to_line(line_number)
         self._relabel_tabs()
         
     def _relabel_tabs(self):

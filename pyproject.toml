@@ -14,7 +14,7 @@ dependencies = [
     "chardet",
     "jedi",
     "mistralai",
-	"pathspec"
+	"pathspec",
 	"pygments",
     "qtpy",
     "ruff",

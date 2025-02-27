@@ -29,9 +29,11 @@ shortcut_previous_tab = 'Ctrl+Shift+Tab'
 shortcut_close_all_tabs = 'Ctrl+Shift+W'
 shortcut_close_other_tabs = 'Ctrl+Alt+W'
 shortcut_open_folder = 'Ctrl+Shift+O'
+shortcut_find_in_files = 'Ctrl+Shift+F'
 
 # Project explorer
 max_files = 1000
+ignored_folders = ['.git']
 
 # Complete
 max_completions = 5

@@ -1,5 +1,6 @@
 import os
 import shutil
+from pathlib import Path
 import logging
 from qtpy.QtWidgets import (
     QDockWidget,
@@ -15,11 +16,10 @@ from qtpy.QtWidgets import (
 )
 from qtpy.QtCore import Qt, QDir, QModelIndex, QSortFilterProxyModel, QUrl, \
     Signal
-from qtpy.QtWidgets import QFileSystemModel, QFileDialog
-from qtpy.QtGui import QKeySequence, QDesktopServices
+from qtpy.QtWidgets import QFileSystemModel
+from qtpy.QtGui import QDesktopServices
 from pathspec import PathSpec
 from pathspec.patterns.gitwildmatch import GitWildMatchPattern
-from . import QuickOpenFileDialog
 from .. import settings
 
 logger = logging.getLogger(__name__)
@@ -119,7 +119,10 @@ class GitignoreFilterProxyModel(QSortFilterProxyModel):
             return True        
         if not self.root_folder:
             return True
-
+        # Ignore explicitly ignored folders
+        path_parts = Path(abs_path).parts
+        if any(ignored in path_parts for ignored in settings.ignored_folders):
+            return False
         # Compute relative path from the repository root
         rel_path = os.path.relpath(abs_path, self.root_folder)
         # If matched by pathspec => it is ignored => filter out
@@ -216,22 +219,10 @@ class ProjectExplorer(QDockWidget):
         gitignore_enabled = self._filter_proxy.gitignore_enabled
         pathspec = self._filter_proxy.pathspec
         # Recursively walk the filesystem from _display_root
-        for dirpath, dirnames, filenames in os.walk(self._display_root):
-            # If .gitignore is enabled, remove directories that should be ignored
-            if gitignore_enabled and pathspec:
-                to_remove = []
-                for d in dirnames:
-                    abs_subdir = os.path.join(dirpath, d)
-                    # Avoid filtering out the _display_root folder
-                    if abs_subdir == self._display_root:
-                        continue
-                    rel_subdir = os.path.relpath(abs_subdir, self._display_root)
-                    # If pathspec matches => it is "ignored" => remove from dirnames
-                    if pathspec.match_file(rel_subdir):
-                        to_remove.append(d)
-                for d in to_remove:
-                    dirnames.remove(d)
-    
+        for dirpath, dirnames, filenames in os.walk(self._display_root):          
+            path_parts = Path(dirpath).parts
+            if any(ignored in path_parts for ignored in settings.ignored_folders):
+                continue
             # Now gather files that are not ignored
             for f in filenames:
                 abs_file = os.path.join(dirpath, f)
@@ -244,8 +235,6 @@ class ProjectExplorer(QDockWidget):
                     # If pathspec matches => "ignored"
                     if pathspec.match_file(rel_file):
                         continue
-    
-                # File is kept
                 results.append(abs_file)
                 if len(results) > settings.max_files:
                     logger.warning("Too many files in project")

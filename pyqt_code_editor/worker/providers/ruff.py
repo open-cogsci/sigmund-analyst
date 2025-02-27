@@ -13,10 +13,10 @@ def ruff_check(code: str) -> list[dict]:
     Args:
         code (str): The Python source code to lint.
     """
-    issues = []
     with tempfile.NamedTemporaryFile(delete=False, suffix=".py", mode="w") as tmp_file:
         tmp_file.write(code)
         tmp_file_path = tmp_file.name
+    print(tmp_file.name)
     cmd = ["ruff", "check", tmp_file_path, "--output-format", "json"]
     try:
         process = subprocess.Popen(cmd, stdout=subprocess.PIPE,

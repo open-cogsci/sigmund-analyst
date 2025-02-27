@@ -1,5 +1,6 @@
 from ..worker import manager
 from qtpy.QtCore import QTimer, Signal
+from qtpy.QtGui import QTextCursor
 import logging
 logging.basicConfig(level=logging.INFO, force=True)
 logger = logging.getLogger(__name__)
@@ -126,6 +127,13 @@ class Base:
         self.document().setModified(modified)
         self.modified = modified
         self.modification_changed.emit(self, modified)
+        
+    def jump_to_line(self, line_number=0):
+        cursor = self.textCursor()
+        cursor.movePosition(QTextCursor.Start)
+        cursor.movePosition(QTextCursor.Down, QTextCursor.MoveAnchor, line_number)
+        self.setTextCursor(cursor)
+        self.ensureCursorVisible()
 
     def update_theme(self):
         """Mixins can implement this to update the theme in response to font changes
