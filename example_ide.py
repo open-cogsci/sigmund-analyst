@@ -35,7 +35,7 @@ class MainWindow(QMainWindow):
         self._open_folder_shortcut.activated.connect(self._open_folder)        
 
     def _open_project_explorer(self, path):
-        project_explorer = ProjectExplorer(self._editor_panel, path)
+        project_explorer = ProjectExplorer(self._editor_panel, path, parent=self)
         project_explorer.closed.connect(self._close_project_explorer)
         self.addDockWidget(Qt.LeftDockWidgetArea, project_explorer)
         self._project_explorers.append(project_explorer)
@@ -44,7 +44,8 @@ class MainWindow(QMainWindow):
         self._project_explorers.remove(project_explorer)
         
     def _open_folder(self):
-        project_explorer = ProjectExplorer.open_folder(self)
+        project_explorer = ProjectExplorer.open_folder(self._editor_panel,
+                                                       parent=self)
         if project_explorer is None:
             return
         project_explorer.closed.connect(self._close_project_explorer)

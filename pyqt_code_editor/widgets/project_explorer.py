@@ -254,7 +254,7 @@ class ProjectExplorer(QDockWidget):
         return results                
         
     @classmethod
-    def open_folder(cls, parent=None) -> object | None:
+    def open_folder(cls, editor_panel, parent=None) -> object | None:
         """
         Shows a folder picker dialog to open a folder.
         If a folder is selected, a ProjectExplorer instance is created and returned.
@@ -268,11 +268,7 @@ class ProjectExplorer(QDockWidget):
         )
         if not selected_dir:
             return None
-        explorer = cls(
-            editor_panel=None,     # Pass in an actual editor panel if needed
-            root_path=selected_dir,
-            parent=parent
-        )
+        explorer = cls(editor_panel, root_path=selected_dir, parent=parent)
         return explorer        
         
     def _toggle_gitignore(self, enabled):
