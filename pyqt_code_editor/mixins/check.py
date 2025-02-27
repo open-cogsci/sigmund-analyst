@@ -21,8 +21,12 @@ class Check:
         # Debounce timer: when the user stops typing for N ms, we trigger the lint action
         self._check_debounce_timer = QTimer(self)
         self._check_debounce_timer.setSingleShot(True)
-        self._check_debounce_timer.setInterval(500)  # adjust as needed
-        self._check_debounce_timer.timeout.connect(self._execute_debounced_check)
+        self._check_debounce_timer.setInterval(500)
+        self._check_debounce_timer.timeout.connect(self._execute_check)
+        # Periodic timer: also periodically run a check
+        self._check_interval_timer = QTimer(self)
+        self._check_interval_timer.setInterval(5000)
+        self._check_interval_timer.timeout.connect(self._execute_check)
 
         # Connect textChanged signal to a debounced method
         self.textChanged.connect(self._on_code_changed)
@@ -37,12 +41,10 @@ class Check:
             self._check_debounce_timer.stop()
         self._check_debounce_timer.start()
 
-    def _execute_debounced_check(self):
+    def _execute_check(self):
         """
         Runs the actual lint check after the debounce period.
         """
-        if self.worker_busy:
-            return
         code = self.toPlainText()
         logger.info("Requesting lint check")
         self.send_worker_request(

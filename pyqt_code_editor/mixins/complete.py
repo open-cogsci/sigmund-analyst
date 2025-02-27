@@ -260,9 +260,6 @@ class Complete:
 
     def _cm_request_completion(self, multiline=False, full=False):
         """Send a completion request if one is not already in progress."""
-        if self.worker_busy:
-            logger.info("Completion request attempted while one is ongoing; ignoring.")
-            return
         self._ignore_next_completion = False
         code = self.toPlainText()
         cursor_pos = self.textCursor().position()
@@ -277,10 +274,6 @@ class Complete:
 
     def _cm_request_calltip(self):
         """Send a calltip request."""
-        if self.worker_busy:
-            logger.info("Calltip request attempted while request is ongoing; ignoring.")
-            return
-
         code = self.toPlainText()
         cursor_pos = self.textCursor().position()
         self._cm_requested_calltip_cursor_pos = cursor_pos        

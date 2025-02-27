@@ -33,11 +33,11 @@ class Base:
         self._cm_poll_timer.timeout.connect(self._cm_check_result)
         self._cm_poll_timer.start()
         self.code_editor_line_annotations = {}
-        # Single ongoing request flag, used for both completions and calltips
-        self.worker_busy = False
         # Keep track of modified status
         self.modified = False
         self.modificationChanged.connect(self.set_modified)
+        # Dictionary mapping pid -> result queue
+        self._active_requests = {}        
         
     def eventFilter(self, obj, event):
         """Can be implement in other mixin classes to filter certain events,
@@ -60,55 +60,66 @@ class Base:
         pass
         
     def send_worker_request(self, **data):
-        self.worker_busy = True
-        self._cm_result_queue, self._cm_worker_pid = \
-            manager.send_worker_request(**data)
-        
+        """
+        Send a request to the worker manager. 
+        This returns a unique queue/pid pair each time, 
+        so we can handle multiple concurrent requests.
+        """
+        result_queue, pid = manager.send_worker_request(**data)
+        self._active_requests[pid] = result_queue
+        logger.info(f"Sent request to worker {pid}, now tracking {len(self._active_requests)} active requests.")
+
     def handle_worker_result(self, action, result):
+        """
+        Subclasses can override this to do specialized handling 
+        for the action & result from the worker process.
+        """
         pass
-        
+
     def _cm_check_result(self):
         """
-        Check for completion or calltip results from the external worker.
-        Includes a quick check to see if the current worker is still alive.
-        If not, reset our busy state and ignore any pending result queue.
+        Called periodically (e.g. via a QTimer) to check each active
+        worker's queue. If there's a result, handle it;
+        if the worker died or the result queue is empty, keep polling.
         """
-        # 1) Check if worker is still alive
-        if self._cm_worker_pid is not None:
-            alive = manager.check_worker_alive(self._cm_worker_pid)
-            if not alive:
-                # Worker crashed or otherwise died; reset state and return
-                logger.warning("Worker process no longer alive. Resetting state.")
-                self.worker_busy = False
-                self._cm_result_queue = None
-                self._cm_worker_pid = None
-                self._cm_poll_timer.start()
-                return
-    
-        # 2) If the worker is alive, proceed with checking the queue
-        if self._cm_result_queue is None or self._cm_result_queue.empty():
-            self._cm_poll_timer.start()
-            return
-    
-        # 3) Retrieve result and reset the queue
-        result = self._cm_result_queue.get()
-        self._cm_result_queue = None
-        manager.mark_worker_as_free(self._cm_worker_pid)
-    
-        # 4) Validate result
-        if not isinstance(result, dict):
-            logger.info(f"Got invalid response (not a dict): {result}")
-            return
-        try:
-            action = result.pop('action')
-        except KeyError:
-            logger.info(f"Missing 'action' in worker response: {result}")
-            return
-    
-        # 5) Mark ourselves as no longer busy and handle action
-        self.worker_busy = False
-        logger.info(f"received worker result: action={action}")
-        self.handle_worker_result(action, result)
+        to_remove = []
+        for pid, queue in self._active_requests.items():
+            # 1) Check if the worker is still alive
+            if not manager.check_worker_alive(pid):
+                logger.warning(f"Worker process {pid} no longer alive. Removing from active requests.")
+                to_remove.append(pid)
+                continue
+
+            # 2) If queue is empty, nothing more to do right now
+            if queue.empty():
+                continue
+
+            # 3) Retrieve the result, mark worker free
+            result = queue.get()
+            manager.mark_worker_as_free(pid)
+
+            # 4) Validate result structure
+            if not isinstance(result, dict):
+                logger.info(f"Got invalid response (not a dict) from {pid}: {result}")
+                to_remove.append(pid)
+                continue
+
+            # 5) Extract action and pass it to our handler
+            action = result.pop('action', None)
+            if action is None:
+                logger.info(f"Missing 'action' in worker response: {result}")
+                to_remove.append(pid)
+                continue
+
+            logger.info(f"Received worker result from {pid}: action={action}")
+            self.handle_worker_result(action, result)
+
+            # 6) We're done with this particular request
+            to_remove.append(pid)
+
+        # Cleanup: remove completed or dead requests
+        for pid in to_remove:
+            self._active_requests.pop(pid, None)
         
     def set_modified(self, modified):
         logger.info(f'modified: {modified}')

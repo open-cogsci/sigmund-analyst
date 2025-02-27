@@ -29,10 +29,14 @@ shortcut_previous_tab = 'Ctrl+Shift+Tab'
 shortcut_close_all_tabs = 'Ctrl+Shift+W'
 shortcut_close_other_tabs = 'Ctrl+Alt+W'
 
-# Worker
+# Complete
 max_completions = 5
 full_completion_delay = 250
 hide_completion_delay = 500
+
+# Check
+check_debounce_delay = 500
+check_interval_delay = 5000
 
 # Sigmund provider
 sigmund_max_context = 2000
