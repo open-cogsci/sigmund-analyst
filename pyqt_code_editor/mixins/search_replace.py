@@ -319,6 +319,7 @@ class SearchReplace:
             self.setTextCursor(cursor)
         self.findNext()
         self.updateHighlighter()
+        self.set_modified(True)
     
     def replaceAll(self):
         needle = self._searchFrame.findEdit.text()
@@ -353,6 +354,7 @@ class SearchReplace:
         # Restore cursor
         self.setTextCursor(saved_cursor)
         self.updateHighlighter()
+        self.set_modified(True)
     
     def updateHighlighter(self):
         # When search widget is hidden, the search highlighter won't be attached
