@@ -11,11 +11,13 @@ license = {file = "COPYING"}
 requires-python = ">=3.10"
 dynamic = ["version", "description"]
 dependencies = [
-    "ruff",
+    "chardet",
     "jedi",
-    "qtpy",
     "mistralai",
-    "chardet"
+	"pathspec"
+	"pygments",
+    "qtpy",
+    "ruff",
 ]
 keywords = ["code editor", "pyqt", "ide"]
 [tool.flit.sdist]
