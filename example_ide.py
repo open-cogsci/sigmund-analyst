@@ -1,6 +1,6 @@
 import sys
 import logging
-from qtpy.QtWidgets import QMainWindow, QApplication, QShortcut
+from qtpy.QtWidgets import QMainWindow, QApplication, QShortcut, QMessageBox
 from qtpy.QtCore import Qt, QDir
 from qtpy.QtGui import QKeySequence
 from pyqt_code_editor.widgets import EditorPanel, ProjectExplorer, \
@@ -52,6 +52,21 @@ class MainWindow(QMainWindow):
         self._project_explorers.append(project_explorer)        
         
     def closeEvent(self, event):
+        # Check if there are unsaved changes, and ask for confirmation if there
+        # are
+        if self._editor_panel.unsaved_changes():
+            message_box = QMessageBox(self)
+            message_box.setWindowTitle("Save changes?")
+            message_box.setText("Unsaved changes will be permanently lost.")
+            message_box.setStandardButtons(
+                QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel)
+            message_box.setDefaultButton(QMessageBox.Cancel)
+            answer = message_box.exec()
+            if answer == QMessageBox.Cancel:
+                event.ignore()
+                return        
+            if answer == QMessageBox.Yes:
+                self._editor_panel.save_all_unsaved_changes()
         manager.stop_all_workers()
         super().closeEvent(event)
 

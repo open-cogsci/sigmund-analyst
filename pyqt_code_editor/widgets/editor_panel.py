@@ -55,7 +55,15 @@ class EditorPanel(QWidget):
         # Connect the lastTabClosed signal so that we can remove empty panels
         t.lastTabClosed.connect(self.handle_tabbed_editor_empty)
         t.tabCloseRequested.connect(self._relabel_tabs)
-        return t    
+        return t
+    
+    def unsaved_changes(self):
+        return any(editor.modified for editor in self.central_splitter.editors())
+        
+    def save_all_unsaved_changes(self):
+        for editor in self.central_splitter.editors():
+            if editor.modified:
+                editor.save_file()        
     
     def save_file(self):
         active_editor = self.active_editor()
