@@ -24,7 +24,7 @@ def ruff_check(code: str) -> list[dict]:
         stdout, stderr = process.communicate()
     except Exception as e:
         logger.error(f'failed to invoke ruff: {e}')
-        return []
+        return {}
     finally:
         if os.path.exists(tmp_file_path):
             os.unlink(tmp_file_path)
@@ -32,7 +32,7 @@ def ruff_check(code: str) -> list[dict]:
         result = json.loads(stdout)
     except Exception as e:
         logger.error(f'failed to parse ruff output: {e}')
-        return []
+        return {}
     formatted_result = {}
     for message in result:
         row = message['location']['row']

@@ -10,35 +10,20 @@ class QuickOpenFileDialog(QuickOpenDialog):
     Collects files in a given root_path, strips common prefix,
     and calls open_file_callback on selection.
     """
-    def __init__(self, parent, root_path, open_file_callback):
-        self.root_path = os.path.abspath(root_path)
+    def __init__(self, parent, file_list, open_file_callback):
         self.open_file_callback = open_file_callback
-        # Gather all files first
-        items = self._gather_file_items()
-        super().__init__(parent, items, title="Quick Open File")
-
-    def _gather_file_items(self):
-        """Recursively gather files from root_path, strip common prefix, build item dicts."""
-        all_files = []
-        for root, dirs, files in os.walk(self.root_path):
-            for f in files:
-                full_path = os.path.join(root, f)
-                all_files.append(os.path.abspath(full_path))
-
-        # Compute the common path
-        if all_files:
-            common_prefix = os.path.commonpath(all_files)
-        else:
-            common_prefix = self.root_path
-
         items = []
-        for full_path in all_files:
-            relative_path = os.path.relpath(full_path, common_prefix)
-            items.append({
-                "name": relative_path,
-                "full_path": full_path,
-            })
-        return items
+        if file_list:
+            common_prefix = os.path.commonpath(file_list)
+            for full_path in file_list:
+                relative_path = os.path.relpath(full_path, common_prefix)
+                items.append({
+                    "name": relative_path,
+                    "full_path": full_path,
+                })
+        else:
+            logger.warning('no files to show')
+        super().__init__(parent, items, title="Quick Open File")
 
     def on_item_selected(self, item_dict: dict):
         """Opens the file at item_dict['full_path'] and closes the dialog."""

@@ -13,8 +13,9 @@ from qtpy.QtWidgets import (
     QVBoxLayout,
     QCheckBox
 )
-from qtpy.QtCore import Qt, QDir, QModelIndex, QSortFilterProxyModel, QUrl
-from qtpy.QtWidgets import QFileSystemModel
+from qtpy.QtCore import Qt, QDir, QModelIndex, QSortFilterProxyModel, QUrl, \
+    Signal
+from qtpy.QtWidgets import QFileSystemModel, QFileDialog
 from qtpy.QtGui import QKeySequence, QDesktopServices
 from pathspec import PathSpec
 from pathspec.patterns.gitwildmatch import GitWildMatchPattern
@@ -122,7 +123,7 @@ class GitignoreFilterProxyModel(QSortFilterProxyModel):
         # Compute relative path from the repository root
         rel_path = os.path.relpath(abs_path, self.root_folder)
         # If matched by pathspec => it is ignored => filter out
-        return not self.pathspec.match_file(rel_path)
+        return not self.pathspec.match_file(rel_path)            
 
     # ----------------------
     # Overridden methods to ensure directories can still expand
@@ -144,9 +145,11 @@ class GitignoreFilterProxyModel(QSortFilterProxyModel):
         self.sourceModel().fetchMore(source_index)
 
 class ProjectExplorer(QDockWidget):
+    
+    closed = Signal(object)
 
     def __init__(self, editor_panel, root_path=None, parent=None):
-        super().__init__("Project Explorer", parent)
+        super().__init__(os.path.basename(root_path), parent)
         self._editor_panel = editor_panel
 
         # Our local "clipboard" for cut/copy/paste
@@ -177,7 +180,7 @@ class ProjectExplorer(QDockWidget):
         self._tree_view.collapsed.connect(self._on_collapsed_proxy)
 
         # Optional: Hide columns other than the file name
-        self.set_single_column_view(True)
+        self._set_single_column_view(True)
         
         # Only if .gitignore exists in the root, create the checkbox
         gitignore_path = os.path.join(self._display_root, '.gitignore')
@@ -199,10 +202,78 @@ class ProjectExplorer(QDockWidget):
 
         # Set our container widget as the dock widget’s main widget
         self.setWidget(container_widget)
-
-        # Shortcut for quick-open
-        self._quick_open_shortcut = QShortcut(QKeySequence(settings.shortcut_quick_open_file), self)
-        self._quick_open_shortcut.activated.connect(self._show_quick_open)
+        
+    def list_files(self) -> list[str]:
+        """
+        Returns a list of all non-ignored files under the display root, 
+        applying the same .gitignore-based logic.
+        If there are more than max_files files, returns empty list.
+        """
+        if not self._display_root:
+            return []
+    
+        results = []
+        gitignore_enabled = self._filter_proxy.gitignore_enabled
+        pathspec = self._filter_proxy.pathspec
+        # Recursively walk the filesystem from _display_root
+        for dirpath, dirnames, filenames in os.walk(self._display_root):
+            # If .gitignore is enabled, remove directories that should be ignored
+            if gitignore_enabled and pathspec:
+                to_remove = []
+                for d in dirnames:
+                    abs_subdir = os.path.join(dirpath, d)
+                    # Avoid filtering out the _display_root folder
+                    if abs_subdir == self._display_root:
+                        continue
+                    rel_subdir = os.path.relpath(abs_subdir, self._display_root)
+                    # If pathspec matches => it is "ignored" => remove from dirnames
+                    if pathspec.match_file(rel_subdir):
+                        to_remove.append(d)
+                for d in to_remove:
+                    dirnames.remove(d)
+    
+            # Now gather files that are not ignored
+            for f in filenames:
+                abs_file = os.path.join(dirpath, f)
+                # Avoid filtering _display_root, though it shouldn't typically be a file
+                if abs_file == self._display_root:
+                    continue
+    
+                if gitignore_enabled and pathspec:
+                    rel_file = os.path.relpath(abs_file, self._display_root)
+                    # If pathspec matches => "ignored"
+                    if pathspec.match_file(rel_file):
+                        continue
+    
+                # File is kept
+                results.append(abs_file)
+                if len(results) > settings.max_files:
+                    logger.warning("Too many files in project")
+                    return []
+    
+        return results                
+        
+    @classmethod
+    def open_folder(cls, parent=None) -> object | None:
+        """
+        Shows a folder picker dialog to open a folder.
+        If a folder is selected, a ProjectExplorer instance is created and returned.
+        Otherwise None is returned.
+        """
+        selected_dir = QFileDialog.getExistingDirectory(
+            parent,
+            "Open Project Folder",
+            "",
+            QFileDialog.ShowDirsOnly
+        )
+        if not selected_dir:
+            return None
+        explorer = cls(
+            editor_panel=None,     # Pass in an actual editor panel if needed
+            root_path=selected_dir,
+            parent=parent
+        )
+        return explorer        
         
     def _toggle_gitignore(self, enabled):
         """Toggles the .gitignore filter on or off and refreshes the model.
@@ -237,7 +308,7 @@ class ProjectExplorer(QDockWidget):
             path = self._model.filePath(source_index)
             self._model.notify_path_collapsed(path)
 
-    def set_single_column_view(self, single_column=True):
+    def _set_single_column_view(self, single_column=True):
         """If single_column=True, show only the file name column with no header."""
         if single_column:
             # Hide columns 1,2,3 (Size, Type, Date Modified) and hide the header
@@ -249,17 +320,6 @@ class ProjectExplorer(QDockWidget):
             self._tree_view.setHeaderHidden(False)
             for col in range(1, 4):
                 self._tree_view.setColumnHidden(col, False)
-
-    def _show_quick_open(self):
-        """Show a dialog with all files in the project, filtered as user types."""
-        # Even though user sees the proxy, the root path is in the source model
-        root_path = self._model.rootPath()
-        dlg = QuickOpenFileDialog(
-            parent=self,
-            root_path=root_path,
-            open_file_callback=self._editor_panel.open_file,
-        )
-        dlg.exec_()
 
     def _on_double_click(self, proxy_index: QModelIndex):
         """Open file on double-click if it's not a directory."""
@@ -463,3 +523,7 @@ class ProjectExplorer(QDockWidget):
 
         self._clipboard_operation = None
         self._clipboard_source_path = None
+        
+    def closeEvent(self, event):
+        super().closeEvent(event)
+        self.closed.emit(self)

@@ -28,6 +28,10 @@ shortcut_symbols = 'Ctrl+R'
 shortcut_previous_tab = 'Ctrl+Shift+Tab'
 shortcut_close_all_tabs = 'Ctrl+Shift+W'
 shortcut_close_other_tabs = 'Ctrl+Alt+W'
+shortcut_open_folder = 'Ctrl+Shift+O'
+
+# Project explorer
+max_files = 1000
 
 # Complete
 max_completions = 5
