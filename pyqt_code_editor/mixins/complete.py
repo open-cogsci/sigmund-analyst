@@ -396,7 +396,7 @@ class Complete:
 
         if not completions:
             # Even there are no completions, we still want to get full completions
-            if not multiline:
+            if not multiline and not full:
                 self._cm_full_completion_timer.start()
             self._cm_completion_popup.hide()            
 
