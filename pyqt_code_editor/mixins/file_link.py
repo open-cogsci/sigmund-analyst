@@ -64,6 +64,7 @@ class FileLink:
 
         # (Re)watch this file
         self._saving = False
+        self._watch_file_changes = True
         self._watch_file(path)
         self.set_modified(False)
 
@@ -130,6 +131,8 @@ class FileLink:
         Called by QFileSystemWatcher whenever the watched file changes on disk.
         By default, offers the user to reload. If reloaded, calls open_file again.
         """
+        if not self._watch_file_changes:
+            return
         # If we have triggered a save ourselves, we ignore it but only once
         if self._saving:
             self._saving = False
@@ -138,6 +141,7 @@ class FileLink:
         if changed_path != self.code_editor_file_path:
             return
 
+        self._watch_file_changes = False
         # Prompt user to reload
         reply = QMessageBox.warning(
             self, 
@@ -155,3 +159,4 @@ class FileLink:
             # Re-add the file to watcher so we keep listening for future changes
             if self._file_watcher is not None:
                 self._file_watcher.addPath(changed_path)
+        self._watch_file_changes = True
