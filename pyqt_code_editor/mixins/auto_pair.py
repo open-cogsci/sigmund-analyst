@@ -32,6 +32,7 @@ class AutoPair:
     def keyPressEvent(self, event):
         cursor = self.textCursor()
         old_pos = cursor.position()
+        selected_text = cursor.selectedText()
         
         # Allows auto-pairing to be disabled for certain positions
         if self._disabled_for_position(old_pos):
@@ -84,7 +85,8 @@ class AutoPair:
             inbetween_seq = pair["inbetween_seq"]
             
             if just_typed.endswith(open_seq) and event.text() == text[new_pos - 1: new_pos]:
-                self._insert_pair(open_seq, close_seq, inbetween_seq)
+                self._insert_pair(open_seq, close_seq, inbetween_seq,
+                                  selected_text)
                 break
 
 
@@ -127,7 +129,7 @@ class AutoPair:
         return False
 
 
-    def _insert_pair(self, open_seq, close_seq, inbetween_seq):
+    def _insert_pair(self, open_seq, close_seq, inbetween_seq, selected_text):
         """
         Called when we recognize that the user typed an open_seq in full.
         Insert the close_seq plus any inbetween_seq, and restore the cursor
@@ -145,12 +147,13 @@ class AutoPair:
             inbetween_seq = '\n' + indent
         # Insert the close_seq and inbetween_seq, indented to the same level as the block
         c.beginEditBlock()
-        
+                
         # Insert in-between text, then the closing
-        c.insertText(inbetween_seq + close_seq)
+        c.insertText(selected_text + inbetween_seq + close_seq)
         
-        # Move the cursor back to where the user was after typing open_seq
-        c.setPosition(old_pos)
+        # Move the cursor back so that it's right after the open_seq and (if any)
+        # the selected text
+        c.movePosition(c.Left, c.MoveAnchor, len(close_seq) + len(inbetween_seq))
         
         c.endEditBlock()
         self.setTextCursor(c)
