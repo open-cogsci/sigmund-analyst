@@ -7,6 +7,7 @@ from .file_link import FileLink
 from .line_number import LineNumber
 from .python_auto_indent import PythonAutoIndent
 from .search_replace import SearchReplace
+from .smart_backspace_delete import SmartBackspaceDelete
 from .symbols import Symbols
 from .shortcuts import Shortcuts
 from .theme import Theme
