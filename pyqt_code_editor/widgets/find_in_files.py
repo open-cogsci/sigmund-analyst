@@ -1,11 +1,10 @@
 import os
 import multiprocessing
-from qtpy.QtWidgets import (
-    QDockWidget, QWidget, QVBoxLayout, QHBoxLayout, 
-    QLabel, QLineEdit, QCheckBox, QPushButton, 
-    QTreeWidget, QTreeWidgetItem, QAbstractItemView
-)
+from qtpy.QtWidgets import QDockWidget, QWidget, QVBoxLayout, QHBoxLayout, \
+    QLabel, QLineEdit, QCheckBox, QPushButton, QTreeWidget, QTreeWidgetItem, \
+    QAbstractItemView, QShortcut
 from qtpy.QtCore import Qt, QTimer, Signal
+from qtpy.QtGui import QKeySequence
 
 def search_in_files_worker(files, search_text, case_sensitive, whole_word, regex, output_queue):
     """
@@ -50,7 +49,7 @@ class FindInFiles(QDockWidget):
     
     open_file_requested = Signal(str, int)
     
-    def __init__(self, files_list, parent=None):
+    def __init__(self, files_list, parent=None, needle=None):
         super().__init__("Find in Files", parent)
         self.setAllowedAreas(Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea)
         
@@ -67,6 +66,9 @@ class FindInFiles(QDockWidget):
         layout.addLayout(controls_layout)
         
         self.searchInput = QLineEdit(self)
+        if needle is not None:
+            self.searchInput.setText(needle)
+        self.searchInput.returnPressed.connect(self._start_search)
         self.caseBox = QCheckBox("Case", self)
         self.wholeWordBox = QCheckBox("Word", self)
         self.regexBox = QCheckBox("Regex", self)
@@ -86,7 +88,7 @@ class FindInFiles(QDockWidget):
         layout.addWidget(self.resultsTree)
         
         self.searchBtn.clicked.connect(self._start_search)
-        self.resultsTree.itemClicked.connect(self._on_item_clicked)
+        self.resultsTree.itemClicked.connect(self._on_item_clicked)        
         
         # Timer to poll queue
         self._timer = QTimer(self)
@@ -94,6 +96,11 @@ class FindInFiles(QDockWidget):
         
         self._timer.setInterval(300)  # every 300 ms
         self._timer.start()
+        
+    def showEvent(self, event):
+        """Override showEvent to set focus when widget is shown"""
+        super().showEvent(event)
+        self.searchInput.setFocus()        
     
     def _start_search(self):
         # Kill any existing worker first
@@ -169,18 +176,18 @@ class FindInFiles(QDockWidget):
         
         if kind == "file":
             path = user_data[1]
-            self._open_file(path, cursor_pos=0)
+            self._open_file(path, line_no=0)
         elif kind == "line":
             path = user_data[1]
             line_no = user_data[2]
             self._open_file(path, line_no)
     
-    def _open_file(self, path, cursor_pos=0):
+    def _open_file(self, path, line_no=0):
         """
         Dummy method: In production, integrate with your editor logic.
         """
-        print(f"Opening file: {path}, line {cursor_pos}")
-        self.open_file_requested.emit(path, cursor_pos)
+        print(f"Opening file: {path}, line {line_no}")
+        self.open_file_requested.emit(path, line_no)
     
     def closeEvent(self, event):
         # Terminate worker process, if any

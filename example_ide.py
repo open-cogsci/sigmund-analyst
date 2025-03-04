@@ -41,7 +41,16 @@ class MainWindow(QMainWindow):
         file_list = []
         for project_explorer in self._project_explorers:
             file_list.extend(project_explorer.list_files())
-        find_in_files = FindInFiles(file_list, parent=self)
+        editor = self._editor_panel.active_editor()
+        if editor is not None:
+            needle = editor.textCursor().selectedText().splitlines()
+            if len(needle) == 1:
+                needle = needle[0].strip()
+            else:
+                needle = None
+        else:
+            needle = None
+        find_in_files = FindInFiles(file_list, parent=self, needle=needle)
         find_in_files.open_file_requested.connect(self._open_found_file)
         self.addDockWidget(Qt.RightDockWidgetArea, find_in_files)
         
