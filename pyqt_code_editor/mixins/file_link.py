@@ -22,6 +22,11 @@ class FileLink:
     code_editor_file_path = None  # str or None
     code_editor_encoding = None   # str or None
     _file_watcher = None          # QFileSystemWatcher or None
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        logger.info("Initializing FileLink")
+        self._watch_file_changes = True
 
     def open_file(self, path: Path | str, encoding: str = None):
         """
@@ -63,8 +68,7 @@ class FileLink:
         self.code_editor_encoding = used_encoding
 
         # (Re)watch this file
-        self._saving = False
-        self._watch_file_changes = True
+        self._saving = False        
         self._watch_file(path)
         self.set_modified(False)
 
