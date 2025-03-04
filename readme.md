@@ -15,6 +15,7 @@ Features:
     
 - A splittable, tabbed editor panel
 - Project explorer
+- Find in files
 - Syntax highlighting
 - Code completion
 - Code checking (linting)
@@ -22,7 +23,11 @@ Features:
 - Search/ replace
 - Completion of paired characers (e.g. brackets, quotes)
 - Automatic indentation (Python)
+- Smart shortcuts
 - Zoom
+
+
+![](screenshot.png)
 
 
 ## Usage
@@ -37,8 +42,8 @@ pip install pyqt6  # or pyqt5
 Next, start one of the example scripts:
 
 ```
-python example_one_editor.py
-python example_full_editor.py
+python example_editor.py
+python example_ide.py
 ```
 
 
