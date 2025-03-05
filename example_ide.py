@@ -7,6 +7,7 @@ from pyqt_code_editor.widgets import EditorPanel, ProjectExplorer, \
     QuickOpenFileDialog, FindInFiles, JupyterConsole
 from pyqt_code_editor.worker import manager
 from pyqt_code_editor import settings
+from pyqt_code_editor.signal_router import signal_router
 
 logger = logging.getLogger(__name__)
 
@@ -39,20 +40,16 @@ class MainWindow(QMainWindow):
         self._find_in_files_shortcut = QShortcut(
             QKeySequence(settings.shortcut_find_in_files), self)
         self._find_in_files_shortcut.activated.connect(self._find_in_files)
-        self._execute_code_shortcut = QShortcut(
-            QKeySequence(settings.shortcut_execute_code), self)
-        self._execute_code_shortcut.activated.connect(self._execute_code)
         
-    def _execute_code(self):
-        editor = self._editor_panel.active_editor()
-        if editor is None:
-            return
-        # The splitting and joining makes sure that we are using the correct
-        # line endings.
-        code = '\n'.join(editor.textCursor().selectedText().splitlines())
-        if not code:
-            return
+        # Connect to dynamically created signals
+        signal_router.connect_to_signal("execute_code", self._execute_code)
+        signal_router.connect_to_signal("execute_file", self._execute_file)
+        
+    def _execute_code(self, code):
         self._jupyter_console.execute_code(code)
+        
+    def _execute_file(self, path):
+        self._jupyter_console.execute_file(path)
         
     def _find_in_files(self):
         file_list = []

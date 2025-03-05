@@ -3,6 +3,7 @@ from .base import Base
 from .check import Check
 from .comment import Comment
 from .complete import Complete
+from .execute import Execute
 from .file_link import FileLink
 from .line_number import LineNumber
 from .python_auto_indent import PythonAutoIndent

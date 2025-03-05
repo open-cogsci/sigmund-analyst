@@ -1,5 +1,5 @@
 from qtpy.QtWidgets import (QDockWidget, QTabWidget, QWidget, QVBoxLayout, 
-                           QToolButton, QMenu, QAction, QMessageBox)
+                           QToolButton, QMenu, QAction)
 from qtpy.QtCore import Signal
 from qtconsole.rich_jupyter_widget import RichJupyterWidget
 from qtconsole.manager import QtKernelManager
@@ -131,11 +131,7 @@ class JupyterConsoleTab(QWidget):
     
     def execute_file(self, filepath):
         """Execute a file in this kernel"""
-        with open(filepath, 'r') as f:
-            code = f.read()
-        
-        # Add a comment with the file path for reference
-        code = f"# Executing file: {filepath}\n{code}"
+        code = f"%run {filepath}"
         self.execute_code(code)
     
     def change_directory(self, directory):
