@@ -1,12 +1,16 @@
 from qtpy.QtWidgets import (QDockWidget, QTabWidget, QWidget, QVBoxLayout, 
-                           QToolButton, QMenu, QAction)
+                           QToolButton, QMenu, QAction, QHBoxLayout)
 from qtpy.QtCore import Signal
 from qtconsole.rich_jupyter_widget import RichJupyterWidget
 from qtconsole.manager import QtKernelManager
 from jupyter_client.kernelspec import KernelSpecManager
 import os
+import logging
 from .. import settings
 
+
+# Set up logger
+logger = logging.getLogger(__name__)
 
 # Define some built-in themes
 THEMES = {
@@ -142,6 +146,22 @@ class JupyterConsoleTab(QWidget):
             return True
         return False
     
+    def interrupt_kernel(self):
+        """Send interrupt (SIGINT) to the kernel"""
+        if self.kernel_manager.has_kernel:
+            logger.info(f"Sending interrupt to kernel {self.kernel_name}")
+            self.kernel_manager.interrupt_kernel()
+            return True
+        return False
+        
+    def restart_kernel(self):
+        """Restart the kernel"""
+        if self.kernel_manager.has_kernel:
+            logger.info(f"Restarting kernel {self.kernel_name}")
+            self.jupyter_widget.request_restart_kernel()
+            return True
+        return False
+    
     def shutdown_kernel(self):
         """Shutdown the kernel"""
         self.kernel_client.stop_channels()
@@ -164,11 +184,38 @@ class JupyterConsole(QDockWidget):
         self.tab_widget.tabCloseRequested.connect(self.close_tab)
         self.setWidget(self.tab_widget)
         
-        # Kernel selector in the corner
+        # Create corner widget with multiple buttons
+        corner_widget = QWidget()
+        corner_layout = QHBoxLayout(corner_widget)
+        corner_layout.setContentsMargins(0, 0, 0, 0)
+        corner_layout.setSpacing(2)
+        
+        # Add kernel button (for new kernels)
         self.kernel_button = QToolButton()
         self.kernel_button.setText("➕")
+        self.kernel_button.setToolTip("Add new kernel")
         self.kernel_button.setPopupMode(QToolButton.InstantPopup)
-        self.tab_widget.setCornerWidget(self.kernel_button)
+        self.kernel_button.setAutoRaise(True)  # Make the button flat
+        corner_layout.addWidget(self.kernel_button)
+        
+        # Add restart kernel button
+        self.restart_button = QToolButton()
+        self.restart_button.setText("↻")
+        self.restart_button.setToolTip("Restart current kernel")
+        self.restart_button.clicked.connect(self.restart_current_kernel)
+        self.restart_button.setAutoRaise(True)  # Make the button flat
+        corner_layout.addWidget(self.restart_button)
+        
+        # Add interrupt kernel button
+        self.interrupt_button = QToolButton()
+        self.interrupt_button.setText("❌")
+        self.interrupt_button.setToolTip("Interrupt current kernel (Ctrl+C)")
+        self.interrupt_button.clicked.connect(self.interrupt_current_kernel)
+        self.interrupt_button.setAutoRaise(True)  # Make the button flat
+        corner_layout.addWidget(self.interrupt_button)
+        
+        # Set the corner widget
+        self.tab_widget.setCornerWidget(corner_widget)
         
         # Create kernel menu
         self.kernel_menu = QMenu(self.kernel_button)
@@ -226,6 +273,28 @@ class JupyterConsole(QDockWidget):
     def get_current_console(self):
         """Get the currently active console tab"""
         return self.tab_widget.currentWidget()
+    
+    def restart_current_kernel(self):
+        """Restart the kernel in the current tab"""
+        console = self.get_current_console()
+        if console:
+            logger.info("Restarting current kernel")
+            success = console.restart_kernel()
+            if success:
+                logger.info("Kernel restart initiated")
+            else:
+                logger.warning("Failed to restart kernel")
+    
+    def interrupt_current_kernel(self):
+        """Send interrupt signal to the current kernel"""
+        console = self.get_current_console()
+        if console:
+            logger.info("Interrupting current kernel")
+            success = console.interrupt_kernel()
+            if success:
+                logger.info("Interrupt signal sent to kernel")
+            else:
+                logger.warning("Failed to interrupt kernel")
     
     def execute_code(self, code):
         """Execute code in the current console"""
