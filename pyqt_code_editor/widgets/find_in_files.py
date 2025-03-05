@@ -59,6 +59,7 @@ class FindInFiles(QDockWidget):
         
         central = QWidget(self)
         layout = QVBoxLayout(central)
+        layout.setContentsMargins(0, 0, 0, 0)
         self.setWidget(central)
         
         # Search Controls
@@ -66,6 +67,7 @@ class FindInFiles(QDockWidget):
         layout.addLayout(controls_layout)
         
         self.searchInput = QLineEdit(self)
+        self.searchInput.setPlaceholderText("Search …")
         if needle is not None:
             self.searchInput.setText(needle)
         self.searchInput.returnPressed.connect(self._start_search)
@@ -74,12 +76,12 @@ class FindInFiles(QDockWidget):
         self.regexBox = QCheckBox("Regex", self)
         self.searchBtn = QPushButton("Search", self)
         
-        controls_layout.addWidget(QLabel("Text:", self))
         controls_layout.addWidget(self.searchInput)
         controls_layout.addWidget(self.caseBox)
         controls_layout.addWidget(self.wholeWordBox)
         controls_layout.addWidget(self.regexBox)
         controls_layout.addWidget(self.searchBtn)
+        controls_layout.setContentsMargins(0, 0, 0, 0)
         
         # Tree Widget for results
         self.resultsTree = QTreeWidget(self)

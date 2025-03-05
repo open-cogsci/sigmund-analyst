@@ -1,10 +1,11 @@
 import sys
+import os
 import logging
 from qtpy.QtWidgets import QMainWindow, QApplication, QShortcut, QMessageBox
 from qtpy.QtCore import Qt, QDir
 from qtpy.QtGui import QKeySequence
 from pyqt_code_editor.widgets import EditorPanel, ProjectExplorer, \
-    QuickOpenFileDialog, FindInFiles, JupyterConsole
+    QuickOpenFileDialog, FindInFiles, JupyterConsole, WorkspaceExplorer
 from pyqt_code_editor.worker import manager
 from pyqt_code_editor import settings
 from pyqt_code_editor.signal_router import signal_router
@@ -26,8 +27,13 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(self._editor_panel)
         self._project_explorers = []
         self._open_project_explorer(root_path)        
+        # Set up the workspace explorer
+        self._workspace_explorer = WorkspaceExplorer(parent=self)
+        self.addDockWidget(Qt.RightDockWidgetArea, self._workspace_explorer)
         # Set up the jupyter console
         self._jupyter_console = JupyterConsole(parent=self)
+        self._jupyter_console.workspace_updated.connect(
+            self._workspace_explorer.update)
         self.addDockWidget(Qt.BottomDockWidgetArea, self._jupyter_console)
                 
         # Shortcuts
@@ -44,8 +50,12 @@ class MainWindow(QMainWindow):
         # Connect to dynamically created signals
         signal_router.connect_to_signal("execute_code", self._execute_code)
         signal_router.connect_to_signal("execute_file", self._execute_file)
-        
+            
     def _execute_code(self, code):
+        editor = self._editor_panel.active_editor()
+        if editor is not None and editor.code_editor_file_path is not None:
+            self._jupyter_console.change_directory(
+                os.path.dirname(editor.code_editor_file_path))
         self._jupyter_console.execute_code(code)
         
     def _execute_file(self, path):
