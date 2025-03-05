@@ -6,6 +6,7 @@ from qtpy.QtWidgets import QTabWidget, QShortcut, QMessageBox, QMenu, QStyle, \
 from qtpy.QtCore import Signal, Qt, QMimeData, QPoint, QByteArray, QDataStream
 from ..code_editors import create_editor
 from .. import settings, utils
+from ..signal_router import signal_router
 logging.basicConfig(level=logging.INFO, force=True)
 logger = logging.getLogger(__name__)
 
@@ -251,6 +252,7 @@ class TabbedEditor(QTabWidget):
         else:
             self.insertTab(index, editor, title)        
         self.setCurrentIndex(index)
+        signal_router.register_widget(editor)
         return editor
         
     def editors(self):
