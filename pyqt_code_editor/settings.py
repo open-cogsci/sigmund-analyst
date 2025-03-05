@@ -30,6 +30,8 @@ shortcut_close_all_tabs = 'Ctrl+Shift+W'
 shortcut_close_other_tabs = 'Ctrl+Alt+W'
 shortcut_open_folder = 'Ctrl+Shift+O'
 shortcut_find_in_files = 'Ctrl+Shift+F'
+shortcut_execute_code = 'F9'
+shortcut_execute_file = 'F5'
 
 # Project explorer
 max_files = 1000

@@ -4,7 +4,7 @@ from qtpy.QtWidgets import QMainWindow, QApplication, QShortcut, QMessageBox
 from qtpy.QtCore import Qt, QDir
 from qtpy.QtGui import QKeySequence
 from pyqt_code_editor.widgets import EditorPanel, ProjectExplorer, \
-    QuickOpenFileDialog, FindInFiles
+    QuickOpenFileDialog, FindInFiles, JupyterConsole
 from pyqt_code_editor.worker import manager
 from pyqt_code_editor import settings
 
@@ -24,9 +24,12 @@ class MainWindow(QMainWindow):
         self._editor_panel = EditorPanel()
         self.setCentralWidget(self._editor_panel)
         self._project_explorers = []
-        self._open_project_explorer(root_path)
+        self._open_project_explorer(root_path)        
+        # Set up the jupyter console
+        self._jupyter_console = JupyterConsole(parent=self)
+        self.addDockWidget(Qt.BottomDockWidgetArea, self._jupyter_console)
                 
-        # Shortcuts for (quick)opening files and folders
+        # Shortcuts
         self._quick_open_shortcut = QShortcut(
             QKeySequence(settings.shortcut_quick_open_file), self)
         self._quick_open_shortcut.activated.connect(self._show_quick_open)        
@@ -36,6 +39,20 @@ class MainWindow(QMainWindow):
         self._find_in_files_shortcut = QShortcut(
             QKeySequence(settings.shortcut_find_in_files), self)
         self._find_in_files_shortcut.activated.connect(self._find_in_files)
+        self._execute_code_shortcut = QShortcut(
+            QKeySequence(settings.shortcut_execute_code), self)
+        self._execute_code_shortcut.activated.connect(self._execute_code)
+        
+    def _execute_code(self):
+        editor = self._editor_panel.active_editor()
+        if editor is None:
+            return
+        # The splitting and joining makes sure that we are using the correct
+        # line endings.
+        code = '\n'.join(editor.textCursor().selectedText().splitlines())
+        if not code:
+            return
+        self._jupyter_console.execute_code(code)
         
     def _find_in_files(self):
         file_list = []

@@ -6,3 +6,4 @@ from .tabbed_editor import TabbedEditor
 from .tab_splitter import TabSplitter
 from .editor_panel import EditorPanel
 from .find_in_files import FindInFiles
+from .jupyter_console import JupyterConsole
