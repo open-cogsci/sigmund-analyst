@@ -4,8 +4,12 @@ import logging
 from qtpy.QtWidgets import QMainWindow, QApplication, QShortcut, QMessageBox
 from qtpy.QtCore import Qt, QDir
 from qtpy.QtGui import QKeySequence
-from pyqt_code_editor.widgets import EditorPanel, ProjectExplorer, \
-    QuickOpenFileDialog, FindInFiles, JupyterConsole, WorkspaceExplorer
+from pyqt_code_editor.widgets import QuickOpenFileDialog
+from pyqt_code_editor.components.editor_panel import EditorPanel
+from pyqt_code_editor.components.project_explorer import ProjectExplorer
+from pyqt_code_editor.components.find_in_files import FindInFiles
+from pyqt_code_editor.components.jupyter_console import JupyterConsole
+from pyqt_code_editor.components.workspace_explorer import WorkspaceExplorer
 from pyqt_code_editor.worker import manager
 from pyqt_code_editor import settings
 from pyqt_code_editor.signal_router import signal_router

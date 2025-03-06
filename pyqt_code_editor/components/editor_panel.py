@@ -2,7 +2,7 @@ import os
 from qtpy.QtWidgets import QApplication, QShortcut, QWidget, QHBoxLayout, QFileDialog
 from qtpy.QtGui import QKeySequence
 from qtpy.QtCore import Qt
-from . import TabbedEditor, TabSplitter
+from ..widgets import TabbedEditor, TabSplitter
 from .. import settings, utils
 import logging
 logging.basicConfig(level=logging.INFO, force=True)
