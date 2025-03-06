@@ -1,6 +1,5 @@
-from qtpy.QtWidgets import QDockWidget
-from qtpy.QtCore import Signal
 from sigmund_qtwidget.sigmund_widget import SigmundWidget
+from ..widgets import Dock
 import logging
 logging.basicConfig(level=logging.debug)
 
@@ -63,29 +62,12 @@ class EditorWorkspace:
         return content
 
 
-class Sigmund(QDockWidget):
-    """
-    A very minimal QDockWidget that hosts SigmundWidget and doesn't handle
-    functionality itself. It just overrides the close event.
-    """
-
-    close_requested = Signal()
-
+class Sigmund(Dock):
     def __init__(self, parent, editor_panel):
         super().__init__(parent)
         self.setWindowTitle("Sigmund")
-
-        # Create our SigmundWidget and place it inside this dock widget
         workspace = EditorWorkspace(editor_panel)
         self.sigmund_widget = SigmundWidget(self)
         self.sigmund_widget.set_workspace_manager(workspace)
         self.sigmund_widget.start_server()
         self.setWidget(self.sigmund_widget)
-
-        # Override close event and emit a signal for the extension to handle
-        def _close_event_override(event):
-            event.ignore()
-            self.hide()
-            self.close_requested.emit()
-
-        self.closeEvent = _close_event_override

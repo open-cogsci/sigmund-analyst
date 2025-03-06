@@ -32,6 +32,10 @@ shortcut_open_folder = 'Ctrl+Shift+O'
 shortcut_find_in_files = 'Ctrl+Shift+F'
 shortcut_execute_code = 'F9'
 shortcut_execute_file = 'F5'
+shortcut_toggle_jupyter_console = 'Ctrl+Shift+J'
+shortcut_toggle_sigmund = 'Ctrl+Shift+I'
+shortcut_toggle_workspace_explorer = 'Ctrl+Shift+X'
+shortcut_toggle_project_explorers = 'Ctrl+\\'
 
 # Project explorer
 max_files = 1000

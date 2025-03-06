@@ -11,6 +11,7 @@ import json
 from concurrent.futures import Future
 from .. import settings
 from ..themes import THEMES
+from ..widgets import Dock
 logger = logging.getLogger(__name__)
 
 
@@ -314,7 +315,7 @@ print(json.dumps({result_var}))
         self.kernel_manager.shutdown_kernel()
 
 
-class JupyterConsole(QDockWidget):
+class JupyterConsole(Dock):
     """Dockable widget containing tabbed Jupyter consoles"""
     
     execution_complete = Signal(str, object)  # Signal for output interception
@@ -322,7 +323,6 @@ class JupyterConsole(QDockWidget):
     
     def __init__(self, parent=None, default_kernel='python3'):
         super().__init__("Jupyter Console", parent)
-        self.setFeatures(QDockWidget.DockWidgetMovable | QDockWidget.DockWidgetFloatable)
         self.default_kernel = default_kernel
         
         # Initialize the tab widget

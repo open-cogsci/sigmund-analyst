@@ -3,6 +3,7 @@ from qtpy.QtWidgets import (QDockWidget, QWidget, QVBoxLayout, QHBoxLayout,
                             QAbstractItemView, QMenu, QAction)
 from qtpy.QtCore import Qt, QSortFilterProxyModel, QAbstractTableModel, QModelIndex
 from qtpy.QtGui import QIcon, QColor, QFont, QBrush
+from ..widgets import Dock
 
 
 class WorkspaceModel(QAbstractTableModel):
@@ -76,12 +77,11 @@ class WorkspaceModel(QAbstractTableModel):
             return self._headers[section]
         return None
 
-class WorkspaceExplorer(QDockWidget):
+class WorkspaceExplorer(Dock):
     """Dock widget for exploring variables in the Jupyter workspace"""
     
     def __init__(self, parent=None):
-        super().__init__("Workspace Explorer", parent)
-        self.setObjectName("workspace_explorer")
+        super().__init__("workspace_explorer", parent)
         
         # Main widget and layout
         self.main_widget = QWidget(self)
@@ -159,3 +159,4 @@ class WorkspaceExplorer(QDockWidget):
             
             # Handle action selection
             # (In a real implementation, would connect to actual functionality)
+            
