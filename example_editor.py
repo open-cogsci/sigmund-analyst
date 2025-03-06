@@ -9,7 +9,7 @@ class MainWindow(QWidget):
         super().__init__()
         self.setWindowTitle("PyQtCodeEditor")
         layout = QVBoxLayout()
-        self.editor = create_editor(path)
+        self.editor = create_editor(path, parent=self)
         layout.addWidget(self.editor)
         self.setLayout(layout)
 
