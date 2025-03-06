@@ -12,6 +12,7 @@ from concurrent.futures import Future
 from .. import settings
 from ..themes import THEMES
 from ..widgets import Dock
+from .. import parachute
 logger = logging.getLogger(__name__)
 
 
@@ -179,6 +180,10 @@ class JupyterConsoleTab(QWidget):
         try:
             workspace_data = future.result()
             logger.info("Workspace updated")
+            kernel_pid = workspace_data.pop('__kernel_pid', None)
+            if kernel_pid is not None and kernel_pid not in parachute.pids:
+                logger.info(f'registering kernel pid {kernel_pid} with parachute')
+                parachute.pids.append(kernel_pid)
             self.workspace_updated.emit(workspace_data)
         except Exception as e:
             logger.error(f"Error updating workspace: {e}")
@@ -235,9 +240,10 @@ class JupyterConsoleTab(QWidget):
         # Define the code to execute in the kernel
         code = f"""
 import sys
+import os
 import json
 
-{result_var} = {{}}
+{result_var} = {{'__kernel_pid': os.getpid()}}
 
 # Get all variables from globals
 for __var_name, __var_value in list(globals().items()):
