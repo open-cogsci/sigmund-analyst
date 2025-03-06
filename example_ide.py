@@ -10,6 +10,7 @@ from pyqt_code_editor.components.project_explorer import ProjectExplorer
 from pyqt_code_editor.components.find_in_files import FindInFiles
 from pyqt_code_editor.components.jupyter_console import JupyterConsole
 from pyqt_code_editor.components.workspace_explorer import WorkspaceExplorer
+from pyqt_code_editor.components.sigmund import Sigmund
 from pyqt_code_editor.worker import manager
 from pyqt_code_editor import settings
 from pyqt_code_editor.signal_router import signal_router
@@ -39,6 +40,9 @@ class MainWindow(QMainWindow):
         self._jupyter_console.workspace_updated.connect(
             self._workspace_explorer.update)
         self.addDockWidget(Qt.BottomDockWidgetArea, self._jupyter_console)
+        # Set up Sigmund
+        self._sigmund = Sigmund(parent=self, editor_panel=self._editor_panel)
+        self.addDockWidget(Qt.RightDockWidgetArea, self._sigmund)
                 
         # Shortcuts
         self._quick_open_shortcut = QShortcut(
