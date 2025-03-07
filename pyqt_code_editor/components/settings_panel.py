@@ -1,7 +1,7 @@
 from qtpy.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout,
                            QCheckBox, QSpinBox, QLineEdit, QPushButton, 
                            QGroupBox, QFormLayout, QScrollArea)
-from .. import settings
+from .. import settings, themes
 from ..widgets import Dock
 import logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -39,6 +39,7 @@ class SettingsWidget(QWidget):
         """Create the basic UI structure"""
         logger.debug("Setting up settings panel UI")
         self.main_layout = QVBoxLayout(self)
+        self.main_layout.setContentsMargins(*themes.OUTER_CONTENT_MARGINS)
         
         # Create a scroll area for the settings
         self.scroll_area = QScrollArea()
@@ -76,6 +77,7 @@ class SettingsWidget(QWidget):
                 
             group_box = QGroupBox(category)
             form_layout = QFormLayout(group_box)
+            form_layout.setContentsMargins(*themes.OUTER_CONTENT_MARGINS)
             
             for setting_name in setting_names:
                 value = getattr(settings, setting_name)

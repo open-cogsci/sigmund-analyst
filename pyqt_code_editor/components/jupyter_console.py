@@ -4,13 +4,14 @@ from qtpy.QtCore import Signal, QTimer
 from qtconsole.rich_jupyter_widget import RichJupyterWidget
 from qtconsole.manager import QtKernelManager
 from jupyter_client.kernelspec import KernelSpecManager
+import qtawesome as qta
 import os
 import logging
 import uuid
 import json
 from concurrent.futures import Future
 from .. import settings
-from ..themes import THEMES
+from ..themes import THEMES, OUTER_CONTENT_MARGINS, HORIZONTAL_SPACING
 from ..widgets import Dock
 from .. import watchdog
 logger = logging.getLogger(__name__)
@@ -26,7 +27,7 @@ class JupyterConsoleTab(QWidget):
         super().__init__(parent)
         self.kernel_name = kernel_name or 'python3'
         self.layout = QVBoxLayout(self)
-        self.layout.setContentsMargins(0, 0, 0, 0)
+        self.layout.setContentsMargins(*OUTER_CONTENT_MARGINS)
         
         # Dictionary to track pending message results
         self._pending_messages = {}
@@ -342,11 +343,11 @@ class JupyterConsole(Dock):
         corner_widget = QWidget()
         corner_layout = QHBoxLayout(corner_widget)
         corner_layout.setContentsMargins(0, 0, 0, 0)
-        corner_layout.setSpacing(2)
+        corner_layout.setSpacing(HORIZONTAL_SPACING)
         
         # Add kernel button (for new kernels)
         self.kernel_button = QToolButton()
-        self.kernel_button.setText("➕")
+        self.kernel_button.setIcon(qta.icon('mdi6.plus'))
         self.kernel_button.setToolTip("Add new kernel")
         self.kernel_button.setPopupMode(QToolButton.InstantPopup)
         self.kernel_button.setAutoRaise(True)  # Make the button flat
@@ -354,7 +355,7 @@ class JupyterConsole(Dock):
         
         # Add restart kernel button
         self.restart_button = QToolButton()
-        self.restart_button.setText("↻")
+        self.restart_button.setIcon(qta.icon('mdi6.restart'))
         self.restart_button.setToolTip("Restart current kernel")
         self.restart_button.clicked.connect(self.restart_current_kernel)
         self.restart_button.setAutoRaise(True)  # Make the button flat
@@ -362,7 +363,7 @@ class JupyterConsole(Dock):
         
         # Add interrupt kernel button
         self.interrupt_button = QToolButton()
-        self.interrupt_button.setText("❌")
+        self.interrupt_button.setIcon(qta.icon('mdi6.stop'))
         self.interrupt_button.setToolTip("Interrupt current kernel (Ctrl+C)")
         self.interrupt_button.clicked.connect(self.interrupt_current_kernel)
         self.interrupt_button.setAutoRaise(True)  # Make the button flat

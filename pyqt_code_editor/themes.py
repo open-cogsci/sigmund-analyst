@@ -30,3 +30,7 @@ THEMES = {
         'selection_color': '#93A1A1',
     }
 }
+
+OUTER_CONTENT_MARGINS = [6, 6, 6, 6]
+HORIZONTAL_SPACING = 6
+VERTICAL_SPACING = 12

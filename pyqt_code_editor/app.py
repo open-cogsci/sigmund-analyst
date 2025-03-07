@@ -5,7 +5,6 @@ from qtpy.QtWidgets import QMainWindow, QShortcut, QMessageBox, \
 from qtpy.QtCore import Qt, QByteArray
 from qtpy.QtGui import QKeySequence
 import qtawesome as qta
-
 from .widgets import QuickOpenFileDialog
 from .components.editor_panel import EditorPanel
 from .components.project_explorer import ProjectExplorer

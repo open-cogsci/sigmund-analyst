@@ -20,7 +20,7 @@ from qtpy.QtWidgets import QFileSystemModel
 from qtpy.QtGui import QDesktopServices
 from pathspec import PathSpec
 from pathspec.patterns.gitwildmatch import GitWildMatchPattern
-from .. import settings
+from .. import settings, themes
 
 logger = logging.getLogger(__name__)
 
@@ -171,7 +171,7 @@ class ProjectExplorer(QDockWidget):
         # Create a container widget and layout, so we can have the treeview + an optional checkbox
         container_widget = QWidget(self)
         layout = QVBoxLayout(container_widget)
-        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setContentsMargins(*themes.OUTER_CONTENT_MARGINS)
 
         # Create our TreeView and attach the proxy model
         self._tree_view = QTreeView(container_widget)
