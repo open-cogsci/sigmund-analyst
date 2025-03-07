@@ -1,8 +1,9 @@
 import os
+import sys
 import logging
 from qtpy.QtWidgets import QMainWindow, QShortcut, QMessageBox, \
-    QDockWidget, QToolBar, QAction
-from qtpy.QtCore import Qt, QByteArray
+    QDockWidget, QToolBar, QAction, QApplication
+from qtpy.QtCore import Qt, QByteArray, QSize
 from qtpy.QtGui import QKeySequence
 import qtawesome as qta
 from .widgets import QuickOpenFileDialog
@@ -137,7 +138,7 @@ class MainWindow(QMainWindow):
         # Create toolbar
         self.toolbar = QToolBar("Main Toolbar")
         self.toolbar.setObjectName('main_toolbar')
-        # self.toolbar.setMovable(False)
+        self.toolbar.setIconSize(QSize(32, 32))
         self.toolbar.setContextMenuPolicy(Qt.PreventContextMenu)
         self.addToolBar(self.toolbar)
 
@@ -428,3 +429,10 @@ class MainWindow(QMainWindow):
             open_file_callback=self._editor_panel.open_file,
         )
         dlg.exec_()
+        
+        
+def launch_app():
+    app = QApplication(sys.argv)
+    window = MainWindow()
+    window.show()
+    sys.exit(app.exec_())

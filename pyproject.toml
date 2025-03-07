@@ -1,6 +1,7 @@
 [build-system]
 requires = ["flit_core >=3.4"]
 build-backend = "flit_core.buildapi"
+
 [project]
 name = "pyqt_code_editor"
 authors = [
@@ -14,14 +15,19 @@ dependencies = [
     "chardet",
     "jedi",
     "mistralai",
-	"pathspec",
-	"pygments",
-	"qtawesome",
+    "pathspec",
+    "pygments",
+    "qtawesome",
     "qtpy",
-    "ruff",
+    "ruff"
 ]
 keywords = ["code editor", "pyqt", "ide"]
+
 [tool.flit.sdist]
 exclude = ["doc-pelican", "testcases", ".github"]
+
 [project.urls]
 Source = "https://github.com/open-cogsci/pyqt_code_editor"
+
+[project.scripts]
+sigmund-analyst = "pyqt_code_editor.app:launch_app"
