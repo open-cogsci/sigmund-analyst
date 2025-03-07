@@ -2,7 +2,7 @@ import os
 import sys
 import json
 import requests
-from ... import settings
+from .. import settings
 
 
 def sigmund_complete(code: str, cursor_pos: int, path: str | None,

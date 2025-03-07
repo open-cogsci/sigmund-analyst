@@ -1,5 +1,5 @@
 import logging
-from ... import settings
+from .. import settings
 
 logger = logging.getLogger(__name__)
 client = None

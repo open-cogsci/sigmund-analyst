@@ -1,5 +1,6 @@
 import logging
 import importlib
+from . import settings
 logging.basicConfig(level=logging.INFO, force=True)
 logger = logging.getLogger(__name__)
 worker_functions_cache = {}
@@ -33,18 +34,13 @@ def main_worker_process_function(request_queue, result_queue):
             continue
 
         logger.info(f"Received request action='{action}'")
-
+        if action == 'set_settings':
+            for name, value in request.get('settings', {}).items():
+                setattr(settings, name, value)
+            continue
         if action == 'quit':
             logger.info("Received 'quit' action. Worker will shut down.")
             break
-        if action == 'setting':
-            # Update some property in the 'settings' module
-            name = request.get('name', None)
-            value = request.get('value', None)
-            logger.info(f"Updating setting: {name} = {value}")
-            if name is not None:
-                setattr(settings, name, value)            
-            return
         
         # Load the worker functions depending on the language. We store the
         # imported module in a cache for efficiency

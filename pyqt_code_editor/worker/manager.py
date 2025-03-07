@@ -1,10 +1,11 @@
 import logging
 from multiprocessing import Process, Queue
 from .process import main_worker_process_function
-from .. import watchdog
+from .. import watchdog, settings
 logger = logging.getLogger(__name__)
 
 _workers = {}  # pid -> {"process", "request_queue", "result_queue", "is_free"}
+
 
 def send_worker_request(**data) -> (Queue, int):
     """
@@ -38,8 +39,10 @@ def send_worker_request(**data) -> (Queue, int):
         "is_free": False,
     }
 
-    logger.info(f"Creating new worker {pid} for request {list(data.keys())}")
-
+    logger.info(f"Creating new worker {pid} for request {data['action']}")
+    settings_action = {'action': 'set_settings',
+                       'settings': {name: value for name, value in settings}}
+    request_queue.put(settings_action)
     # 3. Send the request, return the new worker’s result queue and pid.
     request_queue.put(data)
     return result_queue, pid
@@ -99,3 +102,12 @@ def stop_all_workers():
             w["process"].join()
         del _workers[pid]
     logger.info("All workers stopped.")
+
+
+def update_setting(name, value):
+    settings_action = {'action': 'set_settings', 'settings': {name: value}}
+    # Send to all workers
+    for pid, w in _workers.items():
+        if w["process"].is_alive():
+            w["request_queue"].put(settings_action)            
+settings.setting_changed.connect(update_setting)

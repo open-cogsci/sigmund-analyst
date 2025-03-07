@@ -1,29 +1,3 @@
-"""
-TODO: Add a toolbar with the following buttons:
-    
-- New file
-- Open file
-- Open folder
----
-- Quick select file (from project explorer)
-- Quick select symbol (from current file)
-----
-- Run current file
-- Run selected code or cell
-- Break kernel
-- Restart kernel
-----
-- Find in files
-----
-- Split vertically
-- Split horizontally
-----
-- Toggle project explorers
-- Toggle Jupyter console
-- Toggle workspace explorer
-- Toggle Sigmund
-"""
-
 import sys
 import os
 import logging
@@ -41,7 +15,7 @@ from pyqt_code_editor.components.workspace_explorer import WorkspaceExplorer
 from pyqt_code_editor.components.sigmund import Sigmund
 from pyqt_code_editor import settings, watchdog
 from pyqt_code_editor.signal_router import signal_router
-
+logging.basicConfig(level=logging.INFO, force=True)
 logger = logging.getLogger(__name__)
 
 
@@ -51,7 +25,7 @@ class MainWindow(QMainWindow):
         logger.info("MainWindow initialized")
         # If no path is provided, fall back to current dir
         if not root_path:
-            root_path = QDir.currentPath()
+            root_path = settings.current_folder
 
         self.setWindowTitle("Sigmund Analyst")
         # The editor panel provides splittable editor tabs
@@ -357,6 +331,7 @@ class MainWindow(QMainWindow):
                 return        
             if answer == QMessageBox.Yes:
                 self._editor_panel.save_all_unsaved_changes()
+        settings.save()
         watchdog.shutdown()
         super().closeEvent(event)
 

@@ -257,6 +257,7 @@ class ProjectExplorer(QDockWidget):
         )
         if not selected_dir:
             return None
+        settings.current_folder = selected_dir
         explorer = cls(editor_panel, root_path=selected_dir, parent=parent)
         return explorer        
         

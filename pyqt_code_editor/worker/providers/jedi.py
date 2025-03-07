@@ -1,7 +1,7 @@
 import re
 import logging
 import jedi
-from ... import settings
+from .. import settings
 
 logger = logging.getLogger(__name__)
 
