@@ -1,7 +1,6 @@
 import inspect
 from qtpy.QtCore import QObject, Signal
 import logging
-import weakref
 
 logging.basicConfig(level=logging.INFO, force=True)
 logger = logging.getLogger(__name__)

@@ -17,10 +17,9 @@ class Symbols:
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         logger.info("Initializing symbols")
-        symbol_shortcut = QShortcut(settings.shortcut_symbols, self)
-        symbol_shortcut.setContext(Qt.WidgetWithChildrenShortcut)
-        symbol_shortcut.activated.connect(self.request_symbols)
-                
+        self.symbol_shortcut = QShortcut(settings.shortcut_symbols, self)
+        self.symbol_shortcut.setContext(Qt.WidgetWithChildrenShortcut)
+        self.symbol_shortcut.activated.connect(self.request_symbols)                
     
     def request_symbols(self):
         logger.info("Requesting symbols")

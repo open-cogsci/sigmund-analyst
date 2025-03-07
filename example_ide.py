@@ -1,9 +1,37 @@
+"""
+TODO: Add a toolbar with the following buttons:
+    
+- New file
+- Open file
+- Open folder
+---
+- Quick select file (from project explorer)
+- Quick select symbol (from current file)
+----
+- Run current file
+- Run selected code or cell
+- Break kernel
+- Restart kernel
+----
+- Find in files
+----
+- Split vertically
+- Split horizontally
+----
+- Toggle project explorers
+- Toggle Jupyter console
+- Toggle workspace explorer
+- Toggle Sigmund
+"""
+
 import sys
 import os
 import logging
-from qtpy.QtWidgets import QMainWindow, QApplication, QShortcut, QMessageBox, QDockWidget
+from qtpy.QtWidgets import QMainWindow, QApplication, QShortcut, QMessageBox, \
+    QDockWidget, QToolBar, QAction
 from qtpy.QtCore import Qt, QDir
 from qtpy.QtGui import QKeySequence
+import qtawesome as qta
 from pyqt_code_editor.widgets import QuickOpenFileDialog
 from pyqt_code_editor.components.editor_panel import EditorPanel
 from pyqt_code_editor.components.project_explorer import ProjectExplorer
@@ -87,6 +115,130 @@ class MainWindow(QMainWindow):
         # Connect to dynamically created signals
         signal_router.connect_to_signal("execute_code", self._execute_code)
         signal_router.connect_to_signal("execute_file", self._execute_file)
+        
+        self._setup_toolbar()
+    
+    def _setup_toolbar(self):
+        """Setup the main toolbar with Material Design icons."""
+        # Create toolbar
+        self.toolbar = QToolBar("Main Toolbar")
+        self.toolbar.setMovable(False)
+        self.addToolBar(self.toolbar)
+        
+        # FILE OPERATIONS
+        # New file button
+        new_file_action = QAction(qta.icon('mdi.file-plus'), "New File", self)
+        new_file_action.setStatusTip("Create a new file")
+        new_file_action.triggered.connect(lambda: self._editor_panel.open_file())
+        self.toolbar.addAction(new_file_action)
+        
+        # Open file button
+        open_file_action = QAction(qta.icon('mdi.folder-open'), "Open File", self)
+        open_file_action.setStatusTip("Open an existing file")
+        open_file_action.triggered.connect(lambda: self._editor_panel.select_and_open_file())
+        self.toolbar.addAction(open_file_action)
+        
+        # Open folder button
+        open_folder_action = QAction(qta.icon('mdi.folder-multiple'), "Open Folder", self)
+        open_folder_action.setStatusTip("Open a folder as project")
+        open_folder_action.triggered.connect(self._open_folder)
+        self.toolbar.addAction(open_folder_action)
+        
+        self.toolbar.addSeparator()
+        
+        # QUICK ACCESS
+        # Quick select file
+        quick_file_action = QAction(qta.icon('mdi.file-find'), "Quick Select File", self)
+        quick_file_action.setStatusTip("Quickly find and open a file")
+        quick_file_action.triggered.connect(self._show_quick_open)
+        self.toolbar.addAction(quick_file_action)
+        
+        # Quick select symbol
+        quick_symbol_action = QAction(qta.icon('mdi.code-tags'), "Quick Select Symbol", self)
+        quick_symbol_action.setStatusTip("Quickly find a symbol in current file")
+        quick_symbol_action.triggered.connect(
+            lambda : self._trigger_editor_shortcut('symbol_shortcut'))
+        self.toolbar.addAction(quick_symbol_action)
+        
+        self.toolbar.addSeparator()
+        
+        # EXECUTION CONTROLS
+        # Run current file
+        run_file_action = QAction(qta.icon('mdi.play'), "Run File", self)
+        run_file_action.setStatusTip("Run the current file")
+        run_file_action.triggered.connect(
+            lambda : self._trigger_editor_shortcut('execute_file_shortcut'))
+        self.toolbar.addAction(run_file_action)
+        
+        # Run selected code
+        run_selection_action = QAction(qta.icon('mdi.play-box-outline'), "Run Cell or Selection", self)
+        run_selection_action.setStatusTip("Run the selected cell or lines")
+        run_selection_action.triggered.connect(
+            lambda : self._trigger_editor_shortcut('execute_code_shortcut'))
+        self.toolbar.addAction(run_selection_action)
+        
+        # Break kernel
+        break_kernel_action = QAction(qta.icon('mdi.stop'), "Break Kernel", self)
+        break_kernel_action.setStatusTip("Interrupt the kernel")
+        break_kernel_action.triggered.connect(lambda: self._jupyter_console.interrupt_current_kernel())
+        self.toolbar.addAction(break_kernel_action)
+        
+        # Restart kernel
+        restart_kernel_action = QAction(qta.icon('mdi.restart'), "Restart Kernel", self)
+        restart_kernel_action.setStatusTip("Restart the kernel")
+        restart_kernel_action.triggered.connect(lambda: self._jupyter_console.restart_current_kernel())
+        self.toolbar.addAction(restart_kernel_action)
+        
+        self.toolbar.addSeparator()
+        
+        # FIND IN FILES
+        find_in_files_action = QAction(qta.icon('mdi.file-search'), "Find in Files", self)
+        find_in_files_action.setStatusTip("Search across multiple files")
+        find_in_files_action.triggered.connect(self._find_in_files)
+        self.toolbar.addAction(find_in_files_action)
+        
+        self.toolbar.addSeparator()
+        
+        # SPLIT VIEWS
+        # Oddly, the icons need to be reversed because the horizontal icon 
+        # depicts a vertical split and vice versa
+        split_vert_action = QAction(qta.icon('mdi.arrow-split-horizontal'), "Split Vertically", self)
+        split_vert_action.setStatusTip("Split the editor vertically")
+        split_vert_action.triggered.connect(lambda: self._editor_panel.split(Qt.Vertical))
+        self.toolbar.addAction(split_vert_action)
+        
+        split_horz_action = QAction(qta.icon('mdi.arrow-split-vertical'), "Split Horizontally", self)
+        split_horz_action.setStatusTip("Split the editor horizontally")
+        split_horz_action.triggered.connect(lambda: self._editor_panel.split(Qt.Horizontal))
+        self.toolbar.addAction(split_horz_action)
+        
+        self.toolbar.addSeparator()
+        
+        # TOGGLE PANELS
+        toggle_project_action = QAction(qta.icon('mdi.folder-outline'), "Toggle Project Explorer", self)
+        toggle_project_action.setStatusTip("Show/hide project explorers")
+        toggle_project_action.triggered.connect(self._toggle_project_explorers)
+        self.toolbar.addAction(toggle_project_action)
+        
+        toggle_jupyter_action = QAction(qta.icon('mdi.console'), "Toggle Jupyter Console", self)
+        toggle_jupyter_action.setStatusTip("Show/hide Jupyter console")
+        toggle_jupyter_action.triggered.connect(lambda: self._toggle_dock_widget(self._jupyter_console))
+        self.toolbar.addAction(toggle_jupyter_action)
+        
+        toggle_workspace_action = QAction(qta.icon('mdi.view-list'), "Toggle Workspace Explorer", self)
+        toggle_workspace_action.setStatusTip("Show/hide workspace explorer")
+        toggle_workspace_action.triggered.connect(lambda: self._toggle_dock_widget(self._workspace_explorer))
+        self.toolbar.addAction(toggle_workspace_action)
+        
+        toggle_sigmund_action = QAction(qta.icon('mdi.brain'), "Toggle Sigmund", self)
+        toggle_sigmund_action.setStatusTip("Show/hide Sigmund")
+        toggle_sigmund_action.triggered.connect(lambda: self._toggle_dock_widget(self._sigmund))
+        self.toolbar.addAction(toggle_sigmund_action)
+        
+    def _trigger_editor_shortcut(self, shortcut):
+        editor = self._editor_panel.active_editor()
+        if editor is not None and hasattr(editor, shortcut):
+            getattr(editor, shortcut).activated.emit()
     
     def _setup_dock_widget(self, dock_widget, name):
         """Configures dock widget to hide on close instead of actually closing."""

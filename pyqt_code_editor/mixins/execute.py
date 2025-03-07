@@ -46,20 +46,20 @@ class Execute:
         # Shortcut for executing current cell or selection
         super().__init__(*args, **kwargs)
         logger.info("Initializing Execute")
-        self._execute_shortcut = QShortcut(
+        self.execute_code_shortcut = QShortcut(
             QKeySequence(settings.shortcut_execute_code), 
             self,
             context=Qt.WidgetWithChildrenShortcut
         )
-        self._execute_shortcut.activated.connect(self.execute_selected_text)
+        self.execute_code_shortcut.activated.connect(self.execute_selected_text)
         
         # Shortcut for executing the entire file
-        self._file_shortcut = QShortcut(
+        self.execute_file_shortcut = QShortcut(
             QKeySequence(settings.shortcut_execute_file), 
             self,
             context=Qt.WidgetWithChildrenShortcut
         )
-        self._file_shortcut.activated.connect(self.execute_current_file)
+        self.execute_file_shortcut.activated.connect(self.execute_current_file)
         logger.info("Execute shortcuts initialized")
     
     def execute_selected_text(self):
