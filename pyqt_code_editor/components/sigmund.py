@@ -65,8 +65,8 @@ class EditorWorkspace:
 
 class Sigmund(Dock):
     def __init__(self, parent, editor_panel):
-        super().__init__(parent)
-        self.setWindowTitle("Sigmund")
+        super().__init__('Sigmund', parent)
+        self.setObjectName("sigmund")
         workspace = EditorWorkspace(editor_panel)
         self.sigmund_widget = SigmundWidget(self)
         self.sigmund_widget.set_workspace_manager(workspace)

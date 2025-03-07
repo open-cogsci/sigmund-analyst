@@ -140,6 +140,10 @@ class Settings(QObject):
     codestral_url = SettingProperty('https://codestral.mistral.ai', "Codestral")
     codestral_timeout = SettingProperty(5000, "Codestral")
     
+    # Window geometry
+    window_geometry = SettingProperty('', "Window")
+    window_state = SettingProperty('', "Window")
+    
     def save(self):
         """Save all settings to persistent storage"""
         logger.info("Saving settings to persistent storage")

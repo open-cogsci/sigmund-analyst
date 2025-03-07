@@ -328,6 +328,7 @@ class JupyterConsole(Dock):
     
     def __init__(self, parent=None, default_kernel='python3'):
         super().__init__("Jupyter Console", parent)
+        self.setObjectName('jupyter_console')
         self.default_kernel = default_kernel
         
         # Initialize the tab widget

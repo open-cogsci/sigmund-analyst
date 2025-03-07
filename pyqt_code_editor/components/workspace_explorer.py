@@ -82,7 +82,7 @@ class WorkspaceExplorer(Dock):
     
     def __init__(self, parent=None):
         super().__init__("workspace_explorer", parent)
-        
+        self.setObjectName('workspace_explorer')
         # Main widget and layout
         self.main_widget = QWidget(self)
         self.setWidget(self.main_widget)

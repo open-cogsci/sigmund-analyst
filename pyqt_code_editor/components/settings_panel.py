@@ -155,6 +155,6 @@ class SettingsWidget(QWidget):
         
 class SettingsPanel(Dock):
     def __init__(self, parent):
-        super().__init__(parent)
-        self.setWindowTitle("Settings")
+        super().__init__('Settings', parent)
+        self.setObjectName("Settings")
         self.setWidget(SettingsWidget(self))
