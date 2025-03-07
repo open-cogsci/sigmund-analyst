@@ -11,8 +11,7 @@ from pyqt_code_editor.components.find_in_files import FindInFiles
 from pyqt_code_editor.components.jupyter_console import JupyterConsole
 from pyqt_code_editor.components.workspace_explorer import WorkspaceExplorer
 from pyqt_code_editor.components.sigmund import Sigmund
-from pyqt_code_editor.worker import manager
-from pyqt_code_editor import settings
+from pyqt_code_editor import settings, watchdog
 from pyqt_code_editor.signal_router import signal_router
 
 logger = logging.getLogger(__name__)
@@ -206,7 +205,7 @@ class MainWindow(QMainWindow):
                 return        
             if answer == QMessageBox.Yes:
                 self._editor_panel.save_all_unsaved_changes()
-        manager.stop_all_workers()
+        watchdog.shutdown()
         super().closeEvent(event)
 
     def _show_quick_open(self):

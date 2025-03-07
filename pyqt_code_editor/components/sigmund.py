@@ -1,5 +1,6 @@
 from sigmund_qtwidget.sigmund_widget import SigmundWidget
 from ..widgets import Dock
+from .. import watchdog
 import logging
 logging.basicConfig(level=logging.debug)
 
@@ -70,4 +71,5 @@ class Sigmund(Dock):
         self.sigmund_widget = SigmundWidget(self)
         self.sigmund_widget.set_workspace_manager(workspace)
         self.sigmund_widget.start_server()
+        watchdog.register_subprocess(self.sigmund_widget.server_pid)
         self.setWidget(self.sigmund_widget)

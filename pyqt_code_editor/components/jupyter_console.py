@@ -1,5 +1,5 @@
-from qtpy.QtWidgets import (QDockWidget, QTabWidget, QWidget, QVBoxLayout, 
-                           QToolButton, QMenu, QAction, QHBoxLayout)
+from qtpy.QtWidgets import (QTabWidget, QWidget, QVBoxLayout, QToolButton, QMenu,
+                            QAction, QHBoxLayout)
 from qtpy.QtCore import Signal, QTimer
 from qtconsole.rich_jupyter_widget import RichJupyterWidget
 from qtconsole.manager import QtKernelManager
@@ -12,7 +12,7 @@ from concurrent.futures import Future
 from .. import settings
 from ..themes import THEMES
 from ..widgets import Dock
-from .. import parachute
+from .. import watchdog
 logger = logging.getLogger(__name__)
 
 
@@ -181,9 +181,8 @@ class JupyterConsoleTab(QWidget):
             workspace_data = future.result()
             logger.info("Workspace updated")
             kernel_pid = workspace_data.pop('__kernel_pid', None)
-            if kernel_pid is not None and kernel_pid not in parachute.pids:
-                logger.info(f'registering kernel pid {kernel_pid} with parachute')
-                parachute.pids.append(kernel_pid)
+            if kernel_pid is not None:
+                watchdog.register_subprocess(kernel_pid)
             self.workspace_updated.emit(workspace_data)
         except Exception as e:
             logger.error(f"Error updating workspace: {e}")

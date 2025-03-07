@@ -1,7 +1,7 @@
 import logging
 from multiprocessing import Process, Queue
 from .process import main_worker_process_function
-from .. import parachute
+from .. import watchdog
 logger = logging.getLogger(__name__)
 
 _workers = {}  # pid -> {"process", "request_queue", "result_queue", "is_free"}
@@ -29,7 +29,7 @@ def send_worker_request(**data) -> (Queue, int):
                 args=(request_queue, result_queue))
     p.start()
     pid = p.pid
-    parachute.pids.append(pid)
+    watchdog.register_subprocess(pid)
 
     _workers[pid] = {
         "process": p,

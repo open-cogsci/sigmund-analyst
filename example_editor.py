@@ -1,5 +1,5 @@
 import sys
-from pyqt_code_editor.worker import manager
+from pyqt_code_editor import watchdog
 from qtpy.QtWidgets import QApplication, QVBoxLayout, QWidget
 from pyqt_code_editor.code_editors import create_editor
 
@@ -14,7 +14,7 @@ class MainWindow(QWidget):
         self.setLayout(layout)
 
     def closeEvent(self, event):
-        manager.stop_all_workers()
+        watchdog.shutdown()
         super().closeEvent(event)
 
 
