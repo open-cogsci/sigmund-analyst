@@ -73,3 +73,10 @@ class Sigmund(Dock):
         self.sigmund_widget.start_server()
         watchdog.register_subprocess(self.sigmund_widget.server_pid)
         self.setWidget(self.sigmund_widget)
+        self.visibilityChanged.connect(self._on_visibility_changed)
+
+    def _on_visibility_changed(self, visible):
+        if visible:
+            self.sigmund_widget.start_server()
+        else:
+            self.sigmund_widget.stop_server()
