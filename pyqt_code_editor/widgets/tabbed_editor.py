@@ -110,6 +110,7 @@ class DraggableTabBar(QTabBar):
 class TabbedEditor(QTabWidget):
     """A tab widget that can hold multiple CodeEditor instances."""
     lastTabClosed = Signal(QTabWidget)
+    open_folder_requested = Signal(str)
     
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -312,7 +313,12 @@ class TabbedEditor(QTabWidget):
         if event.mimeData().hasUrls():
             for url in event.mimeData().urls():
                 path = url.toLocalFile()
-                self.add_code_editor(path)
+                # If path is a folder, open a code editor, otherwise emit the
+                # open_folder signal
+                if os.path.isdir(path):
+                    self.open_folder_requested.emit(path)
+                else:
+                    self.add_code_editor(path)
         
         if not event.mimeData().hasFormat("application/x-tabdata"):
             event.ignore()
@@ -325,7 +331,6 @@ class TabbedEditor(QTabWidget):
         dataByteArray = event.mimeData().data("application/x-tabdata")
         stream = QDataStream(dataByteArray, QDataStream.ReadOnly)
         tabText = stream.readQString()
-        hasIcon = stream.readBool()
         # (We ignore the icon detail in this example or simply set a blank icon.)
         # If you’re handing around pixmaps, you could store them more explicitly.
 

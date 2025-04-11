@@ -1,7 +1,7 @@
 import os
 from qtpy.QtWidgets import QApplication, QShortcut, QWidget, QHBoxLayout, QFileDialog
 from qtpy.QtGui import QKeySequence
-from qtpy.QtCore import Qt
+from qtpy.QtCore import Qt, Signal
 from ..widgets import TabbedEditor, TabSplitter
 from .. import settings, utils
 import logging
@@ -10,6 +10,9 @@ logger = logging.getLogger(__name__)
 
 
 class EditorPanel(QWidget):
+    
+    open_folder_requested = Signal(str)
+    
     def __init__(self, parent=None, initial_path=None):
         super().__init__(parent)
         logger.info("EditorPanel initialized")
@@ -55,6 +58,7 @@ class EditorPanel(QWidget):
         # Connect the lastTabClosed signal so that we can remove empty panels
         t.lastTabClosed.connect(self.handle_tabbed_editor_empty)
         t.tabCloseRequested.connect(self._relabel_tabs)
+        t.open_folder_requested.connect(self.open_folder_requested)
         return t
     
     def unsaved_changes(self):

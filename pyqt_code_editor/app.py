@@ -32,6 +32,7 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("Sigmund Analyst")
         # The editor panel provides splittable editor tabs
         self._editor_panel = EditorPanel()
+        self._editor_panel.open_folder_requested.connect(self._open_folder)
         self.setCentralWidget(self._editor_panel)
         self._project_explorers = []
         # Track if project explorers are hidden as a group
@@ -110,7 +111,7 @@ class MainWindow(QMainWindow):
 
         # Connect to dynamically created signals
         signal_router.connect_to_signal("execute_code", self._execute_code)
-        signal_router.connect_to_signal("execute_file", self._execute_file)
+        signal_router.connect_to_signal("execute_file", self._execute_file)        
 
         self._setup_toolbar()
 
@@ -374,10 +375,14 @@ class MainWindow(QMainWindow):
     def _close_project_explorer(self, project_explorer):
         self._project_explorers.remove(project_explorer)
 
-    def _open_folder(self):
-        project_explorer = ProjectExplorer.open_folder(
-            self._editor_panel, parent=self
-        )
+    def _open_folder(self, path=None):
+        # The event handler may pass a bool argument
+        if path is None or isinstance(path, bool):
+            project_explorer = ProjectExplorer.open_folder(
+                self._editor_panel, parent=self)
+        else:
+            project_explorer = ProjectExplorer(self._editor_panel, path,
+                                               parent=self)
         if project_explorer is None:
             return
         project_explorer.closed.connect(self._close_project_explorer)
