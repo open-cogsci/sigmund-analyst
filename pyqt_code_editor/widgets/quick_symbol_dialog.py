@@ -1,4 +1,3 @@
-import os
 import logging
 from . import QuickOpenDialog
 logger = logging.getLogger(__name__)

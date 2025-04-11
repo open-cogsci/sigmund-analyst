@@ -31,7 +31,7 @@ class Symbols:
     def handle_worker_result(self, action, result):
         """Check for completion or calltip results from the external worker."""
         super().handle_worker_result(action, result)
-        if action != 'symbols':
+        if action != 'symbols' or not result.get('symbols', False):
             return
         QuickSymbolDialog(self, result['symbols'], self.jump_to_symbol).exec()
         

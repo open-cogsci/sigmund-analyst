@@ -49,7 +49,7 @@ def main_worker_process_function(request_queue, result_queue):
             try:
                 worker_functions = importlib.import_module(
                     f".languages.{language}", package=__package__)
-            except ImportError as e:
+            except ImportError:
                 from .languages import generic as worker_functions
                 logger.info(f'failed to load worker functions for {language}, falling back to generic')
             else:
@@ -105,7 +105,7 @@ def main_worker_process_function(request_queue, result_queue):
                 
         elif action == 'symbols':
             if worker_functions.symbols is None:
-                check_results = []
+                symbols_results = []
             else:
                 code = request.get('code', '')
                 symbols_results = worker_functions.symbols(code)
