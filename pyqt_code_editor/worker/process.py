@@ -84,11 +84,11 @@ def main_worker_process_function(request_queue, result_queue):
             })
 
         elif action == 'calltip':
+            cursor_pos = request.get('cursor_pos', 0)
             if worker_functions.calltip is None:
                 signatures = None
             else:
                 code = request.get('code', '')
-                cursor_pos = request.get('cursor_pos', 0)
                 path = request.get('path', None)
                 logger.info(f"Performing calltip: language='{language}', path={path}")
                 signatures = worker_functions.calltip(
