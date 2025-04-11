@@ -115,24 +115,31 @@ class MainWindow(QMainWindow):
 
         self._setup_toolbar()
 
-        # If we have no saved geometry/state, hide the docks by default
-        if not settings.window_geometry or not settings.window_state:
-            self._workspace_explorer.hide()
-            self._jupyter_console.hide()
-            self._settings_panel.hide()
-        else:
-            # Restore geometry and state
-            try:
-                geom = QByteArray.fromBase64(
-                    settings.window_geometry.encode('utf-8')
-                )
-                state = QByteArray.fromBase64(
-                    settings.window_state.encode('utf-8')
-                )
-                self.restoreGeometry(geom)
-                self.restoreState(state)
-            except Exception as e:
-                logger.warning(f"Could not restore window geometry/state: {e}")
+        # Restoring the geometry often crashes with a segfault, so for now we 
+        # just use this default
+        # just use this default
+        self._workspace_explorer.hide()
+        self._jupyter_console.hide()
+        self._sigmund.hide()
+        self._settings_panel.hide()
+        # # If we have no saved geometry/state, hide the docks by default
+        # if not settings.window_geometry or not settings.window_state:
+            # self._workspace_explorer.hide()
+            # self._jupyter_console.hide()
+            # self._settings_panel.hide()
+        # else:
+            # # Restore geometry and state
+            # try:
+                # geom = QByteArray.fromBase64(
+                    # settings.window_geometry.encode('utf-8')
+                # )
+                # state = QByteArray.fromBase64(
+                    # settings.window_state.encode('utf-8')
+                # )
+                # self.restoreGeometry(geom)
+                # self.restoreState(state)
+            # except Exception as e:
+                # logger.warning(f"Could not restore window geometry/state: {e}")
 
     def _setup_toolbar(self):
         """Setup the main toolbar with Material Design icons."""
