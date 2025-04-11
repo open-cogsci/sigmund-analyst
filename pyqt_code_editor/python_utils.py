@@ -821,12 +821,12 @@ def extract_cells_from_code(code: str) -> list:
     # Store all detected cells
     cells = []
     
-    # Track the current position
-    current_pos = 0
-    
     # Define regex patterns for cell markers
     marker_pattern = re.compile(r'^(# %%|#%%|# In\[\]:?).*?$', re.MULTILINE)
-    triple_quotes_pattern = re.compile(r'(""".*?"""|\'\'\'.*?\'\'\')', re.DOTALL)
+    triple_quotes_pattern = re.compile(
+        r'(?m)^(""".*?"""|\'\'\'.*?\'\'\')',
+        re.DOTALL
+    )
     
     # Find all marker-based cells
     marker_matches = list(marker_pattern.finditer(code))
