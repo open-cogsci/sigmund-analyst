@@ -13,6 +13,7 @@ requires-python = ">=3.10"
 dynamic = ["version", "description"]
 dependencies = [
     "chardet",
+    "detect-indent",
     "jedi",
     "mistralai",
     "pathspec",

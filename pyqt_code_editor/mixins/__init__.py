@@ -1,3 +1,4 @@
+from .auto_indent import AutoIndent
 from .auto_pair import AutoPair, PythonAutoPair
 from .base import Base
 from .check import Check

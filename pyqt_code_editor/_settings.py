@@ -82,6 +82,7 @@ class Settings(QObject):
     font_family = SettingProperty('Ubuntu Mono', "Appearance")
     color_scheme = SettingProperty('monokai', "Appearance")
     tab_width = SettingProperty(4, "Appearance")
+    default_indent = SettingProperty('\t', "Appearance")
     word_wrap = SettingProperty(False, "Appearance")
     character_ruler = SettingProperty(80, "Appearance")  # None to disable
     search_replace_background = SettingProperty("#fdff74", "Appearance")
