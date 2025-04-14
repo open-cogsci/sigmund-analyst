@@ -3,7 +3,7 @@ import sys
 import logging
 from qtpy.QtWidgets import QMainWindow, QShortcut, QMessageBox, \
     QDockWidget, QToolBar, QAction, QApplication
-from qtpy.QtCore import Qt, QByteArray, QSize
+from qtpy.QtCore import Qt, QSize
 from qtpy.QtGui import QKeySequence
 import qtawesome as qta
 from .widgets import QuickOpenFileDialog
