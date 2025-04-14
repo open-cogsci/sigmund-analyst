@@ -2,7 +2,8 @@ from sigmund_qtwidget.sigmund_widget import SigmundWidget
 from ..widgets import Dock
 from .. import watchdog
 import logging
-logging.basicConfig(level=logging.debug)
+logging.basicConfig(level=logging.INFO, force=True)
+logger = logging.getLogger(__name__)
 
 
 class EditorWorkspace:
@@ -70,13 +71,14 @@ class Sigmund(Dock):
         workspace = EditorWorkspace(editor_panel)
         self.sigmund_widget = SigmundWidget(self)
         self.sigmund_widget.set_workspace_manager(workspace)
-        self.sigmund_widget.start_server()
-        watchdog.register_subprocess(self.sigmund_widget.server_pid)
         self.setWidget(self.sigmund_widget)
-        self.visibilityChanged.connect(self._on_visibility_changed)
 
-    def _on_visibility_changed(self, visible):
+    def setVisible(self, visible):
         if visible:
+            logger.info('starting sigmund connector')
             self.sigmund_widget.start_server()
+            watchdog.register_subprocess(self.sigmund_widget.server_pid)
         else:
+            logger.info('stopping sigmund connector')
             self.sigmund_widget.stop_server()
+        super().setVisible(visible)
