@@ -57,23 +57,10 @@ class Settings(QObject):
     # Signal emitted when any setting changes: (setting_name, new_value)
     setting_changed = Signal(str, object)
     
-    # Singleton instance
-    _instance = None
-    
-    def __new__(cls):
-        if cls._instance is None:
-            cls._instance = super(Settings, cls).__new__(cls)
-            cls._instance._initialized = False
-        return cls._instance
-    
-    def __init__(self):
-        if self._initialized:
-            return
-        
+    def __init__(self):        
         super().__init__()
         self._values = {}
         self._qsettings = QSettings("cogscinl", "Sigmund Analyst")
-        self._initialized = True
         logger.info("Initializing Settings manager")
         self._load_settings()
     
