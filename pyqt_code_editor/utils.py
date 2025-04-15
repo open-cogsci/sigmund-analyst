@@ -94,3 +94,15 @@ def shorten_paths(paths):
     
     return results
 
+
+def get_first_available_font(font_candidates):
+    """
+    Takes a list of font family names and returns the first
+    that is available on the system, or None if none are found.
+    """
+    from qtpy.QtGui import QFontDatabase
+    available_families = QFontDatabase.families()
+    for candidate in font_candidates:
+        if candidate in available_families:
+            return candidate
+    return None

@@ -445,6 +445,7 @@ class MainWindow(QMainWindow):
         
 def launch_app():
     app = QApplication(sys.argv)
+    settings.set_font_family()
     window = MainWindow()
     window.show()
     sys.exit(app.exec_())

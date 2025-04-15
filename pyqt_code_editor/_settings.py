@@ -66,7 +66,7 @@ class Settings(QObject):
     
     # Appearance
     font_size = SettingProperty(16, "Appearance")
-    font_family = SettingProperty('Ubuntu Mono', "Appearance")
+    font_family = SettingProperty('default', "Appearance")
     color_scheme = SettingProperty('monokai', "Appearance")
     tab_width = SettingProperty(4, "Appearance")
     default_indent = SettingProperty('\t', "Appearance")
@@ -214,6 +214,19 @@ class Settings(QObject):
         """Returns all settings as a JSON array of objects."""
         # todo
         return json.dumps({name: value for name, value in self})
+        
+    def set_font_family(self):
+        """Changes the font family from default to an actual font. This happens
+        only after the app has been initialized, because QFontDatase requires
+        a QApplication instance.
+        """
+        if self.font_family != 'default':
+            return
+        from .utils import get_first_available_font
+        self.font_family = get_first_available_font(
+            ['Ubuntu Mono', 'Liberation Mono', 'DejaVu Sans Mono', 'Courier New',
+             'monospace'])
+        logger.info(f'setting font family to {self.font_family}')
 
 
 # Create the singleton instance
