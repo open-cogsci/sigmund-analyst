@@ -82,8 +82,13 @@ class EditorPanel(QWidget):
         active_editor.save_file_as()
     
     def select_and_open_file(self):
+        options = QFileDialog.Options()
+        if os.environ.get("DONT_USE_NATIVE_FILE_DIALOG", False):
+            options |= QFileDialog.Option.DontUseNativeDialog
+            logger.info('not using native file dialog')        
         path, _ = QFileDialog.getOpenFileName(
-            self, "Open File", settings.current_folder, "All Files (*.*)")
+            self, "Open File", settings.current_folder, "All Files (*.*)",
+            options=options)
         if path:
             settings.current_folder = os.path.dirname(path)
             self.open_file(path)

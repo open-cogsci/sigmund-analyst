@@ -93,10 +93,10 @@ class FileLink:
         self.set_modified(False)
         self.file_saved.emit(self, self.code_editor_encoding)
 
-    def save_file_as(self, path: Path | str =  None):
+    def save_file_as(self, path: Path | str = None):
         """
         Saves the editor content to file and updates code_editor_file_path.
-        If no path is provided, the user asked to choose.
+        If no path is provided, the user is asked to choose.
         """
         if path is None:
             if self.code_editor_file_path is None:
@@ -104,10 +104,18 @@ class FileLink:
                                               settings.default_filename)
             else:
                 suggested_name = self.code_editor_file_path
+
+            options = QFileDialog.Options()
+            if os.environ.get("DONT_USE_NATIVE_FILE_DIALOG", False):
+                options |= QFileDialog.Option.DontUseNativeDialog
+                logger.info('not using native file dialog')
             path, _ = QFileDialog.getSaveFileName(
-                self, "Save As", suggested_name, "All Files (*.*)")
+                self, "Save As", suggested_name, "All Files (*.*)", options=options
+            )
+
             if not path:
                 return
+
         old_path = self.code_editor_encoding
         settings.current_folder = os.path.dirname(path)
         self.code_editor_file_path = str(path)

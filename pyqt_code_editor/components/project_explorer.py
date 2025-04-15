@@ -8,7 +8,6 @@ from qtpy.QtWidgets import (
     QFileDialog,
     QMenu,
     QMessageBox,
-    QShortcut,
     QInputDialog,
     QWidget,
     QVBoxLayout,
@@ -249,12 +248,12 @@ class ProjectExplorer(QDockWidget):
         If a folder is selected, a ProjectExplorer instance is created and returned.
         Otherwise None is returned.
         """
-        selected_dir = QFileDialog.getExistingDirectory(
-            parent,
-            "Open Project Folder",
-            "",
-            QFileDialog.ShowDirsOnly
-        )
+        options = QFileDialog.Options(QFileDialog.ShowDirsOnly)
+        if os.environ.get("DONT_USE_NATIVE_FILE_DIALOG", False):
+            options |= QFileDialog.Option.DontUseNativeDialog
+            logger.info('not using native file dialog')        
+        selected_dir = QFileDialog.getExistingDirectory(parent,
+            "Open Project Folder", "", options=options)
         if not selected_dir:
             return None
         settings.current_folder = selected_dir
