@@ -78,6 +78,7 @@ class Settings(QObject):
     # Files and Folders
     current_folder = SettingProperty(os.path.expanduser('~'), "Files")
     default_filename = SettingProperty('untitled.txt', "Files")
+    default_language = SettingProperty('python', "Files")
     default_encoding = SettingProperty('utf-8', "Files")
     
     # Keyboard shortcuts

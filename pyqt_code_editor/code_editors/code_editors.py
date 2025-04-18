@@ -1,5 +1,5 @@
 import importlib
-from .. import utils
+from .. import utils, settings
 import logging
 logging.basicConfig(level=logging.INFO, force=True)
 logger = logging.getLogger(__name__)
@@ -10,7 +10,7 @@ editor_module_cache = {}
 def create_editor(path=None, language=None, *args, **kwargs):
     if language is None:
         if path is None:
-            language = 'text'
+            language = settings.default_language
         else:
             language = utils.guess_language_from_path(path)
     # Load the editor module depending on the language. We store the
