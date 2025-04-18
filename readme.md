@@ -1,43 +1,52 @@
-# PyQt Code Editor
-
-__This code is under development and not ready for general use__
-
-Fully featured code-editor widgets for PyQt
+# PyQt Code Editor / Sigmund Analyst
 
 Copyright 2025 Sebastiaan Mathôt
 
 
 ## About
 
-This is a set of code-editor widgets for PyQt. They are inspired by PyQode, and contain much of the same functionality, but in a cleaner and more modern codebase. All functionality can be used as standalone PyQt widgets. A full Python IDE is also available. This IDE is called Sigmund Analyst, and is primarily intended for data analysis in combination with [SigmundAI](https://sigmundai.eu).
+Sigmund Analyst is a powerful code editor (also: Integrated Development Environment or IDE) focused on AI-assisted data analysis with Python
 
 Features:
     
-- Code-editor widgets with syntax highlighting, code completion, AI integration, and more
-- Project explorer (folder view)
+- AI integration [SigmundAI](https://sigmundai.eu) and [Mistral Codestral](https://docs.mistral.ai/capabilities/code_generation/)
+- Syntax highlighting
+- Code completion
+- Code checking
+- Project explorer
+- Jupyter (IPython) console
+- Workspace explorer
 - Editor panel with splittable tabs
-- Jupyter console
-- Workspace explorer (linked to Jupyter console)
 - Settings panel
 
 ![](screenshot.png)
 
 
-## Usage
+## AI integration
 
-First, install all dependencies using:
+### SigmundAI for collaborative code editing
+
+You can work together with SigmundAI on the currently active document or selected text. To activate SigmundAI integration, simply log into <https://sigmundai.eu> (subscription required). Sigmund Analyst will then automatically connect to SigmundAI when you enable the Sigmund panel in the toolbar.
+
+
+### Mistral Codestral for as-you-type suggestions
+
+As-you-type code suggestions are provided by Mistral Codestral. To activate Mistral integration, you need to create an account with Mistral AI. Currently, a free Codestral API key is then provided through the Mistral console. Copy-paste this API key to Codestral API Key field in the settings panel of Sigmund Analyst.
+
+
+## Installation
+
+Install with:
 
 ```
-pip install .
+pip install pyqt_code_editor
 ```
 
-Next, start one of the example scripts:
+Start Sigmund Analyst with:
 
 ```
-python examples/example_ide.py
+sigmund-analyst
 ```
-
-On some systems, a segmentation fault occurs with the version of PyQt from PyPi. In that case, install PyQt from some other source, such as Anaconda.
 
 
 ## License
