@@ -26,7 +26,7 @@ echo "▶ Creating virtual-env in $VENV_DIR ..."
 echo "▶ Installing package ..."
 source "$VENV_DIR/bin/activate"
 pip install --upgrade pip
-pip install --upgrade pyqt_code_editor
+pip install --upgrade --force-reinstall pyqt_code_editor
 deactivate
 
 echo "▶ Creating wrapper in $WRAPPER ..."
