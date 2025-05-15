@@ -36,6 +36,17 @@ As-you-type code suggestions are provided by Mistral Codestral. To activate Mist
 
 ## Installation
 
+### Linux installer
+
+The easiest way to install Sigmund Analyst on Linux is to download and run the installer script. This will create a Virtual Environment, pip install Sigmund Analyst and all dependencies into this environment, and add a Desktop file to your system to easily start Sigmund Analyst. To upgrade, simply run the script again.
+
+```
+bash <(curl -L https://raw.githubusercontent.com/open-cogsci/pyqt_code_editor/refs/heads/master/install_sigmund_analyst.sh)
+```
+
+
+### Other systems
+
 Install with:
 
 ```
