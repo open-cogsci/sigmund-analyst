@@ -25,7 +25,9 @@ class CompletionPopup(QListWidget):
             }}''')
         # Use a frameless tool window so it can float above the editor
         # without stealing focus. Note we do NOT use Qt.Popup here.
-        self.setWindowFlags(Qt.FramelessWindowHint | Qt.Tool)
+        self.setWindowFlags(Qt.Tool | Qt.FramelessWindowHint | 
+                            Qt.NoDropShadowWindowHint | 
+                            Qt.WindowDoesNotAcceptFocus)
 
         # Let the editor keep focus
         self.setFocusPolicy(Qt.NoFocus)
