@@ -95,6 +95,13 @@ class JupyterConsoleTab(QWidget):
             .out-prompt-number {{ color: red; }}
         '''
         self.jupyter_widget.setStyleSheet(stylesheet)
+        # Recent versions of Jupyter require setting the stylesheet also on the 
+        # control and page control widget. But these may not exist in older 
+        # versions.
+        if hasattr(self.jupyter_widget, '_control'):
+            self.jupyter_widget._control.setStyleSheet(stylesheet)
+        if hasattr(self.jupyter_widget, '_page_control'):
+            self.jupyter_widget._page_control.setStyleSheet(stylesheet)
         
         # Connect execution_complete to auto-update workspace
         self.execution_complete.connect(self._on_execution_complete)
