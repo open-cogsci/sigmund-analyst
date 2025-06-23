@@ -118,6 +118,11 @@ class GitignoreFilterProxyModel(QSortFilterProxyModel):
             return True        
         if not self.root_folder:
             return True
+        # Always keep directories. We need to be able to look inside them 
+        # because their children might be re-included by negated patterns in
+        # .gitignore.
+        if source_model.isDir(index):
+            return True            
         # Ignore explicitly ignored folders
         path_parts = Path(abs_path).parts
         if any(ignored in path_parts for ignored in settings.ignored_folders):
