@@ -1,10 +1,10 @@
 import os
 import multiprocessing
 from qtpy.QtWidgets import QDockWidget, QWidget, QVBoxLayout, QHBoxLayout, \
-    QLabel, QLineEdit, QCheckBox, QPushButton, QTreeWidget, QTreeWidgetItem, \
-    QAbstractItemView, QShortcut
+    QLineEdit, QCheckBox, QPushButton, QTreeWidget, QTreeWidgetItem, \
+    QAbstractItemView
 from qtpy.QtCore import Qt, QTimer, Signal
-from qtpy.QtGui import QKeySequence
+
 
 def search_in_files_worker(files, search_text, case_sensitive, whole_word, regex, output_queue):
     """

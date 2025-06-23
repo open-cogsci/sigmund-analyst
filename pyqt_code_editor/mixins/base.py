@@ -128,12 +128,32 @@ class Base:
         self.modified = modified
         self.modification_changed.emit(self, modified)
         
-    def jump_to_line(self, line_number=0):
-        cursor = self.textCursor()
+    def jump_to_line(self, line_number: int = 0):
+        """
+        Jump to a specific line (0-based) in the QPlainTextEdit,
+        centre it in the viewport and select the whole line.
+        """
+        # Sanity-check the requested line number
+        if line_number < 0:
+            line_number = 0
+        max_line = self.document().blockCount() - 1
+        line_number = min(line_number, max_line)
+
+        cursor = QTextCursor(self.document())
+
+        # Move to the requested line
         cursor.movePosition(QTextCursor.Start)
-        cursor.movePosition(QTextCursor.Down, QTextCursor.MoveAnchor, line_number)
+        cursor.movePosition(QTextCursor.NextBlock, QTextCursor.MoveAnchor,
+                            line_number - 1)
+
+        # Select the whole line for visibility
+        cursor.select(QTextCursor.LineUnderCursor)
+
+        # Apply the cursor to the editor
         self.setTextCursor(cursor)
-        self.ensureCursorVisible()
+
+        # Scroll so the line sits roughly in the middle of the viewport
+        self.centerCursor()
 
     def update_theme(self):
         """Mixins can implement this to update the theme in response to font changes
