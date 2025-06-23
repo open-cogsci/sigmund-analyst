@@ -75,6 +75,9 @@ class Settings(QObject):
     search_replace_background = SettingProperty("#fdff74", "Appearance")
     search_replace_foreground = SettingProperty("#000000", "Appearance")
     
+    # Jupyter Console
+    default_kernel = SettingProperty('python3', "JupyterConsole")
+    
     # Files and Folders
     current_folder = SettingProperty(os.path.expanduser('~'), "Files")
     default_filename = SettingProperty('untitled.txt', "Files")

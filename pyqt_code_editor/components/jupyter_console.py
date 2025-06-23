@@ -349,77 +349,93 @@ print(json.dumps({result_var}))
         self.kernel_client.stop_channels()
         self.kernel_manager.shutdown_kernel()
 
-
 class JupyterConsole(Dock):
     """Dockable widget containing tabbed Jupyter consoles"""
     
     execution_complete = Signal(str, object)  # Signal for output interception
-    workspace_updated = Signal(dict)  # Signal for workspace updates
+    workspace_updated = Signal(dict)          # Signal for workspace updates
     
     def __init__(self, parent=None, default_kernel='python3'):
         super().__init__("Jupyter Console", parent)
         self.setObjectName('jupyter_console')
         self.default_kernel = default_kernel
+
+        # ---------------------------------------------------------------------
+        # Kernel cache
+        # ---------------------------------------------------------------------
+        self.available_kernels = []  # will be filled by refresh_kernel_menu()
         
-        # Initialize the tab widget
+        # ---------------------------------------------------------------------
+        # UI setup
+        # ---------------------------------------------------------------------
         self.tab_widget = QTabWidget()
         self.tab_widget.setTabsClosable(True)
         self.tab_widget.tabCloseRequested.connect(self.close_tab)
         self.tab_widget.currentChanged.connect(self._on_tab_changed)
         self.setWidget(self.tab_widget)
         
-        # Create corner widget with multiple buttons
+        # Corner widget with buttons
         corner_widget = QWidget()
         corner_layout = QHBoxLayout(corner_widget)
         corner_layout.setContentsMargins(0, 0, 0, 0)
         corner_layout.setSpacing(HORIZONTAL_SPACING)
         
-        # Add kernel button (for new kernels)
         self.kernel_button = QToolButton()
         self.kernel_button.setIcon(qta.icon('mdi6.plus'))
         self.kernel_button.setToolTip("Add new kernel")
         self.kernel_button.setPopupMode(QToolButton.InstantPopup)
-        self.kernel_button.setAutoRaise(True)  # Make the button flat
+        self.kernel_button.setAutoRaise(True)
         corner_layout.addWidget(self.kernel_button)
         
-        # Add restart kernel button
         self.restart_button = QToolButton()
         self.restart_button.setIcon(qta.icon('mdi6.restart'))
         self.restart_button.setToolTip("Restart current kernel")
         self.restart_button.clicked.connect(self.restart_current_kernel)
-        self.restart_button.setAutoRaise(True)  # Make the button flat
+        self.restart_button.setAutoRaise(True)
         corner_layout.addWidget(self.restart_button)
         
-        # Add interrupt kernel button
         self.interrupt_button = QToolButton()
         self.interrupt_button.setIcon(qta.icon('mdi6.stop'))
         self.interrupt_button.setToolTip("Interrupt current kernel (Ctrl+C)")
         self.interrupt_button.clicked.connect(self.interrupt_current_kernel)
-        self.interrupt_button.setAutoRaise(True)  # Make the button flat
+        self.interrupt_button.setAutoRaise(True)
         corner_layout.addWidget(self.interrupt_button)
         
-        # Set the corner widget
         self.tab_widget.setCornerWidget(corner_widget)
         
-        # Create kernel menu
+        # ---------------------------------------------------------------------
+        # Kernel menu
+        # ---------------------------------------------------------------------
         self.kernel_menu = QMenu(self.kernel_button)
         self.kernel_button.setMenu(self.kernel_menu)
         self.refresh_kernel_menu()
         
+        # ---------------------------------------------------------------------
         # Start with a default kernel
+        # ---------------------------------------------------------------------
         self.add_console_tab(self.default_kernel)
-        
+    
+    # -------------------------------------------------------------------------
+    # Helper methods
+    # -------------------------------------------------------------------------
     def _on_tab_changed(self, index):
         console_tab = self.tab_widget.widget(index)
-        console_tab.update_workspace()
+        if console_tab:
+            console_tab.update_workspace()
     
+    # -------------------------------------------------------------------------
+    # Kernel handling
+    # -------------------------------------------------------------------------
     def refresh_kernel_menu(self):
-        """Refresh the list of available kernels"""
+        """Refresh the list of available kernels and rebuild the kernel menu."""
         self.kernel_menu.clear()
         
         # Get available kernelspecs
         kernel_spec_manager = HomeAwareKernelSpecManager()
         specs = kernel_spec_manager.get_all_specs()
+        
+        # Cache available kernels
+        self.available_kernels = list(specs.keys())
         
         for spec_name, spec in specs.items():
             display_name = spec['spec']['display_name']
@@ -429,15 +445,26 @@ class JupyterConsole(Dock):
             self.kernel_menu.addAction(action)
     
     def kernel_menu_triggered(self):
-        """Handle kernel menu item selection"""
         action = self.sender()
         if action:
-            kernel_name = action.data()
-            self.add_console_tab(kernel_name)
+            self.add_console_tab(action.data())
     
     def add_console_tab(self, kernel_name):
-        """Add a new console tab with the specified kernel"""
-        # Create and add the new tab
+        """Add a new console tab with the specified kernel.
+        Falls back to the first available kernel if the requested one is invalid.
+        """
+        if kernel_name not in self.available_kernels:
+            if self.available_kernels:
+                fallback = self.available_kernels[0]
+                logger.warning(
+                    "Requested kernel '%s' not found. "
+                    "Falling back to '%s'.", kernel_name, fallback
+                )
+                kernel_name = fallback
+            else:
+                logger.error("No available kernels found. Cannot create console tab.")
+                return None
+        
         console_tab = JupyterConsoleTab(kernel_name=kernel_name, parent=self)
         console_tab.execution_complete.connect(self.handle_execution_complete)
         console_tab.workspace_updated.connect(self.handle_workspace_updated)
@@ -445,72 +472,60 @@ class JupyterConsole(Dock):
         self.tab_widget.setCurrentIndex(index)
         return console_tab
     
+    # -------------------------------------------------------------------------
+    # Tab / kernel management
+    # -------------------------------------------------------------------------
     def close_tab(self, index):
-        """Close a console tab and shut down its kernel"""
         widget = self.tab_widget.widget(index)
         if widget:
-            # Shut down the kernel
             widget.shutdown_kernel()
-            
-            # Remove the tab
             self.tab_widget.removeTab(index)
-            
-            # If that was the last tab, add a new one with the default kernel
             if self.tab_widget.count() == 0:
                 self.add_console_tab(self.default_kernel)
     
     def get_current_console(self):
-        """Get the currently active console tab"""
         return self.tab_widget.currentWidget()
     
     def restart_current_kernel(self):
-        """Restart the kernel in the current tab"""
         console = self.get_current_console()
         if console:
             logger.info("Restarting current kernel")
-            success = console.restart_kernel()
-            if success:
+            if console.restart_kernel():
                 logger.info("Kernel restart initiated")
             else:
                 logger.warning("Failed to restart kernel")
     
     def interrupt_current_kernel(self):
-        """Send interrupt signal to the current kernel"""
         console = self.get_current_console()
         if console:
             logger.info("Interrupting current kernel")
-            success = console.interrupt_kernel()
-            if success:
+            if console.interrupt_kernel():
                 logger.info("Interrupt signal sent to kernel")
             else:
                 logger.warning("Failed to interrupt kernel")
     
+    # -------------------------------------------------------------------------
+    # Execution helpers
+    # -------------------------------------------------------------------------
     def execute_code(self, code, silent=False):
-        """Execute code in the current console"""
         console = self.get_current_console()
         if console:
-            if silent:
-                console.execute_silently(code)
-            else:
-                console.execute_code(code)
+            (console.execute_silently if silent else console.execute_code)(code)
     
     def execute_file(self, filepath):
-        """Execute a file in the current console"""
         console = self.get_current_console()
         if console:
             console.execute_file(filepath)
     
     def change_directory(self, directory):
-        """Change working directory of the current console"""
         console = self.get_current_console()
-        if console:
-            return console.change_directory(directory)
-        return False
+        return console.change_directory(directory) if console else False
     
+    # -------------------------------------------------------------------------
+    # Signals
+    # -------------------------------------------------------------------------
     def handle_execution_complete(self, output, result):
-        """Handle execution complete signal from a console tab"""
         self.execution_complete.emit(output, result)
         
-    def handle_workspace_updated(self, dict):
-        """Handle workspace updated signal from a console tab"""
-        self.workspace_updated.emit(dict)
+    def handle_workspace_updated(self, data):
+        self.workspace_updated.emit(data)

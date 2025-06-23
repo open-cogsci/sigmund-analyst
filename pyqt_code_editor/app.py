@@ -46,10 +46,10 @@ class MainWindow(QMainWindow):
         self._setup_dock_widget(self._workspace_explorer, "Workspace Explorer")
 
         # Set up the jupyter console
-        self._jupyter_console = JupyterConsole(parent=self)
+        self._jupyter_console = JupyterConsole(
+            parent=self, default_kernel=settings.default_kernel)
         self._jupyter_console.workspace_updated.connect(
-            self._workspace_explorer.update
-        )
+            self._workspace_explorer.update)
         self.addDockWidget(Qt.BottomDockWidgetArea, self._jupyter_console)
         self._setup_dock_widget(self._jupyter_console, "Jupyter Console")
 
