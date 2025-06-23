@@ -70,6 +70,8 @@ class Complete:
         pos = self.textCursor().position()
         if self._cm_paren_prefix is None or pos >= len(self._cm_paren_prefix):
             self._update_paren_prefix_cache()
+        if pos >= len(self._cm_paren_prefix):
+            return False
         return self._cm_paren_prefix[pos] > 0
     
     def _is_navigation_key(self, event):
