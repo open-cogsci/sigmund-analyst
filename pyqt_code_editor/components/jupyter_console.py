@@ -52,6 +52,8 @@ class JupyterConsoleTab(QWidget):
         self._internal_messages = set()
         # Set of message IDs where output should be hidden
         self._silent_messages = set()
+        # Flag to prevent recursive workspace updates
+        self._updating_workspace = False        
         
         # Create Jupyter console widget
         self.jupyter_widget = RichJupyterWidget()
@@ -185,11 +187,18 @@ class JupyterConsoleTab(QWidget):
     
     def _on_execution_complete(self, output, content):
         """Automatically update workspace after regular code execution"""
+        # Prevent recursive updates
+        if self._updating_workspace:
+            return        
         # Use a small delay to ensure the kernel has processed everything
         QTimer.singleShot(100, self.update_workspace)
     
     def update_workspace(self):
         """Trigger a workspace update and emit the signal when complete"""
+        if self._updating_workspace:
+            logger.debug("Workspace update already in progress, skipping")
+            return
+        self._updating_workspace = True        
         future = self.get_workspace_async()
         future.add_done_callback(self._on_workspace_update_complete)
     
@@ -206,6 +215,9 @@ class JupyterConsoleTab(QWidget):
             logger.error(f"Error updating workspace: {e}")
             # Emit empty workspace on error
             self.workspace_updated.emit({})
+        finally:
+            self._updating_workspace = False
+                
     
     def execute_code(self, code):
         """Execute a code snippet in this kernel"""
