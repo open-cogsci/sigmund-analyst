@@ -14,7 +14,7 @@ from .components.jupyter_console import JupyterConsole
 from .components.workspace_explorer import WorkspaceExplorer
 from .components.sigmund import Sigmund
 from .components.settings_panel import SettingsPanel
-from . import settings, watchdog
+from . import settings, watchdog, __version__
 from pyqt_code_editor.signal_router import signal_router
 
 logging.basicConfig(level=logging.INFO, force=True)
@@ -29,7 +29,7 @@ class MainWindow(QMainWindow):
         if not root_path:
             root_path = settings.current_folder
 
-        self.setWindowTitle("Sigmund Analyst")
+        self.setWindowTitle(f"Sigmund Analyst {__version__}")
         # The editor panel provides splittable editor tabs
         self._editor_panel = EditorPanel()
         self._editor_panel.open_folder_requested.connect(self._open_folder)
