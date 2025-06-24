@@ -1,6 +1,7 @@
 import logging
 from qtpy.QtCore import QTimer, Qt
 from qtpy.QtGui import QTextCursor
+from qtpy.QtWidgets import QApplication
 from ..widgets.completion_popup import CompletionPopup
 from ..widgets.calltip_widget import CalltipWidget
 from .. import settings
@@ -447,6 +448,7 @@ class Complete:
         """
         Display the calltip as a small persistent widget below the cursor line,
         horizontally aligned with the cursor, so it doesn't obscure typed text.
+        If there's not enough space below, show it above the cursor instead.
         """
         if self._cm_calltip_widget.isVisible():
             logger.info("Calltip widget already visible, updating text.")
@@ -460,12 +462,33 @@ class Complete:
         # the text cursor relative to the editor's viewport.
         cr = self.cursorRect()
 
-        # Convert its bottom-left to global coordinates, then shift down
-        global_pos = self.mapToGlobal(cr.bottomLeft())
-        global_pos.setX(global_pos.x() + self.viewportMargins().left())
-        # global_pos.setY(global_pos.y() + cr.height())
-
+        # Get the screen geometry to check boundaries
+        screen = QApplication.primaryScreen()
+        screen_rect = screen.availableGeometry()
+    
+        # Calculate the calltip size
+        self._cm_calltip_widget.adjustSize()
+        calltip_height = self._cm_calltip_widget.height()
+    
+        # Convert cursor bottom-left to global coordinates
+        global_bottom_left = self.mapToGlobal(cr.bottomLeft())
+        global_bottom_left.setX(global_bottom_left.x() + self.viewportMargins().left())
+    
+        # Check if calltip would fit below the cursor
+        if global_bottom_left.y() + calltip_height > screen_rect.bottom():
+            # Not enough space below, show above cursor instead
+            global_pos = self.mapToGlobal(cr.topRight())
+            global_pos.setX(global_pos.x() + self.viewportMargins().left())
+            global_pos.setY(global_pos.y() - calltip_height)
+            logger.info("Positioning calltip above cursor due to screen boundaries.")
+        else:
+            # Enough space below, use bottom-left position
+            global_pos = global_bottom_left
+            logger.info("Positioning calltip below cursor.")
+    
+        print(f'intended position: {global_pos}')
         self._cm_calltip_widget.move(global_pos)
+        print(f'actual position: {self._cm_calltip_widget.pos()}')
         self._cm_calltip_widget.show()
 
     def closeEvent(self, event):
