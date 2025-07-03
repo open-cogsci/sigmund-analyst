@@ -5,7 +5,7 @@ Copyright 2025 Sebastiaan Mathôt
 
 ## About
 
-Sigmund Analyst is a powerful code editor (also: Integrated Development Environment or IDE) focused on AI-assisted data analysis with Python
+Sigmund Analyst is a powerful code editor (also: Integrated Development Environment or IDE) focused on AI-assisted data analysis with Python. It is composed of a set of powerful PyQt/ PySide widgets that can also be used in other applications.
 
 Features:
     
