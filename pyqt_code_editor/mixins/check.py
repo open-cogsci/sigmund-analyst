@@ -79,10 +79,11 @@ class Check:
                 symbol = '➜'
             else:
                 symbol = '❌'
-            description = '\n'.join([
+            description = '\n'.join({
                 str(annotation['code']) + ': ' + annotation['message']
+                if annotation['code'] else annotation['message']
                 for annotation in annotations
-            ])
+            })
             annotation = {
                 'type': 'check',
                 'text': f'{symbol}{line_number}',
