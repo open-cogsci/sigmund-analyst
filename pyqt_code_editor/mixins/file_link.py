@@ -165,7 +165,17 @@ class FileLink:
         if reply == QMessageBox.Yes:
             # Reload file
             logger.info("Reloading file after external change.")
-            self.open_file(changed_path, encoding=self.code_editor_encoding)
+            try:
+                self.open_file(changed_path,
+                               encoding=self.code_editor_encoding)
+            except FileNotFoundError:
+                # When an open file is renamed, it may not exist anymore
+                old_path = self.code_editor_file_path
+                self.code_editor_file_path = None
+                self.file_name_changed.emit(self, old_path,
+                                            self.code_editor_file_path)
+                self.set_modified(True)
+                return
         else:
             logger.info("User chose not to reload. Re-watching file anyway.")
             # Re-add the file to watcher so we keep listening for future changes

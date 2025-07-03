@@ -235,10 +235,12 @@ class TabbedEditor(QTabWidget):
         """
         from_language = utils.guess_language_from_path(from_path)
         to_language = utils.guess_language_from_path(to_path)
+        index = self.indexOf(editor)
         if from_language == to_language:
+            title = self._synonym(editor.code_editor_file_path)
+            self.setTabText(index, title)
             return
         logger.info(f'language changed from {from_language} to {to_language}')
-        index = self.indexOf(editor)
         self.removeTab(index)
         self.add_code_editor(to_path, index=index)
 
