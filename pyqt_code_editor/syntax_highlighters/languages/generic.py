@@ -45,7 +45,8 @@ class SyntaxHighlighter(QSyntaxHighlighter):
         for token_type, token_text in tokens:
             length = len(token_text)
             fmt = self._get_format(token_type)
-            self.setFormat(index, length, fmt)
+            if fmt:
+                self.setFormat(index, length, fmt)
             index += length
     
 
@@ -56,21 +57,25 @@ class SyntaxHighlighter(QSyntaxHighlighter):
         if token_type in self._token_formats:
             return self._token_formats[token_type]
 
-        fmt = QTextCharFormat()
-        style_defs = self._style.style_for_token(token_type)
-
-        if style_defs['color']:
-            color_str = style_defs['color']
-            fmt.setForeground(self._make_brush(color_str))
-        if style_defs['bgcolor']:
-            bg_color_str = style_defs['bgcolor']
-            fmt.setBackground(self._make_brush(bg_color_str))
-        if style_defs['bold']:
-            fmt.setFontWeight(QFont.Bold)
-        if style_defs['italic']:
-            fmt.setFontItalic(True)
-        if style_defs['underline']:
-            fmt.setUnderlineStyle(QTextCharFormat.SingleUnderline)
+        try:
+            style_defs = self._style.style_for_token(token_type)
+        except KeyError:
+            logger.error(f"style not found for token type {token_type}")
+            fmt = None
+        else:
+            fmt = QTextCharFormat()
+            if style_defs['color']:
+                color_str = style_defs['color']
+                fmt.setForeground(self._make_brush(color_str))
+            if style_defs['bgcolor']:
+                bg_color_str = style_defs['bgcolor']
+                fmt.setBackground(self._make_brush(bg_color_str))
+            if style_defs['bold']:
+                fmt.setFontWeight(QFont.Bold)
+            if style_defs['italic']:
+                fmt.setFontItalic(True)
+            if style_defs['underline']:
+                fmt.setUnderlineStyle(QTextCharFormat.SingleUnderline)
 
         self._token_formats[token_type] = fmt
         return fmt
