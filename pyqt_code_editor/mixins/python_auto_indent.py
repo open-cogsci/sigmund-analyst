@@ -1,4 +1,5 @@
 from qtpy.QtCore import Qt
+from qtpy.QtGui import QTextCursor
 from .. import python_utils, settings
 import logging
 logging.basicConfig(level=logging.INFO, force=True)
@@ -50,7 +51,14 @@ class PythonAutoIndent:
             logging.info("Enter/Return pressed")
             cursor = self.textCursor()
             cursor.beginEditBlock()
-            code = self.toPlainText()[:cursor.position()]
+    
+            # Use QTextCursor to get text up to cursor position
+            # This handles UTF-16 encoding correctly
+            temp_cursor = self.textCursor()
+            temp_cursor.movePosition(QTextCursor.Start)
+            temp_cursor.setPosition(cursor.position(), QTextCursor.KeepAnchor)
+            code = temp_cursor.selectedText().replace('\u2029', '\n')
+    
             new_indent = python_utils.python_auto_indent(code)
             # Insert the computed indentation
             super().keyPressEvent(event)
@@ -60,7 +68,6 @@ class PythonAutoIndent:
             cursor.endEditBlock()
             self.setTextCursor(cursor)
             return
-
         # Otherwise, default behavior
         super().keyPressEvent(event)
 
