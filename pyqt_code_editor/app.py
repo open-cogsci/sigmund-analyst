@@ -339,6 +339,7 @@ class MainWindow(QMainWindow):
             self._jupyter_console.change_directory(
                 os.path.dirname(editor.code_editor_file_path)
             )
+        self._toggle_dock_widget(self._jupyter_console, show=True)
         self._jupyter_console.execute_code(code)
 
     def _execute_file(self, path):
