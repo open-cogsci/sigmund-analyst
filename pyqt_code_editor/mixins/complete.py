@@ -354,10 +354,36 @@ class Complete:
                 left_overlap_size = i
                 break
         # Captures special case of exactly 1 character of left overlap, which
-        # can reflect words with double letters, such as Hel + lo = Hello,
-        # and not Helo.
+        # can reflect words with double letters, but it doesn't need to. To
+        # decide whether the overlap needs to be removed we check whether the
+        # stripped version exists in the text. If so, we use that, if not,
+        # we assume that the doubling is intended.
+        #
+        # def aabb(): pass
+        # a| completion is 'abb' overlap = 0
+        #
+        # def abb(): pass
+        # a| completion is 'abb' overlap = 1        
         if left_overlap_size == 1:
-            left_overlap_size = 0
+            # Get the index of the last character in before_text that is
+            # alphanumeric or underscore
+            last_symbol_index = -1
+            while -last_symbol_index <= len(before_text) and before_text[last_symbol_index].isalnum() or before_text[last_symbol_index] == '_':
+                last_symbol_index -= 1
+            last_symbol_index += 1
+            symbol_before = before_text[last_symbol_index:]
+            # Get the index of the first character in completion that is
+            # alphanumeric or underscore
+            last_symbol_index = 0
+            while last_symbol_index < len(completion) and completion[last_symbol_index].isalnum() or completion[last_symbol_index] == '_':
+                last_symbol_index += 1
+            symbol_after = completion[:last_symbol_index]
+            symbol = symbol_before + symbol_after
+            if symbol in doc_text:
+                left_overlap_size = 0
+                logger.info(f'{symbol} exists in text, keeping overlap')                
+            else:
+                logger.info(f'{symbol} does not exists in text, stripping overlap')                
         # Create a new completion without what's already typed
         new_completion = completion[left_overlap_size:]
 
