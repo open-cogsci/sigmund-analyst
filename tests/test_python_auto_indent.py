@@ -1,6 +1,6 @@
 import re
 import textwrap
-from pyqt_code_editor import python_utils
+from pyqt_code_editor.utils.languages.python import _auto_indent as python_utils
 
 
 def parse_autoindent_test_cases(test_cases: str) -> list[dict]:
@@ -19,7 +19,6 @@ def parse_autoindent_test_cases(test_cases: str) -> list[dict]:
     but with the '>' removed. The 'n_space' is how many leading spaces appear
     on the next line (the one containing '|').
     """
-
     # We'll split by triple-backtick code blocks and capture
     # the text in between for descriptions.
     parts = re.split(r"```(.*?)```", test_cases, flags=re.DOTALL)

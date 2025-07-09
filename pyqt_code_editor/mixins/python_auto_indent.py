@@ -1,6 +1,7 @@
 from qtpy.QtCore import Qt
 from qtpy.QtGui import QTextCursor
-from .. import python_utils, settings
+from .. import settings
+from ..utils.languages import python as python_utils
 import logging
 logging.basicConfig(level=logging.INFO, force=True)
 

@@ -1,6 +1,4 @@
-import re
-import textwrap
-from pyqt_code_editor import python_utils
+from pyqt_code_editor.utils.languages import python as python_utils
 
 
 test_case = '''# %%

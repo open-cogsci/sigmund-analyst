@@ -1,7 +1,7 @@
 from qtpy.QtCore import Signal, Qt, QTimer
 from qtpy.QtGui import QTextCursor, QTextCharFormat, QColor, QKeySequence
 from qtpy.QtWidgets import QShortcut, QTextEdit
-from .. python_utils import extract_cells_from_code
+from ..utils.languages.python import extract_cells_from_code
 from .. import settings
 import logging
 
