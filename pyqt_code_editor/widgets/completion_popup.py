@@ -1,5 +1,4 @@
 from qtpy.QtCore import Qt
-from qtpy.QtGui import QTextCursor
 from qtpy.QtWidgets import QListWidget, QListWidgetItem
 from .. import settings
 

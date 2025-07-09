@@ -368,14 +368,18 @@ class Complete:
             # Get the index of the last character in before_text that is
             # alphanumeric or underscore
             last_symbol_index = -1
-            while -last_symbol_index <= len(before_text) and before_text[last_symbol_index].isalnum() or before_text[last_symbol_index] == '_':
+            while -last_symbol_index <= len(before_text) and \
+                    (before_text[last_symbol_index].isalnum() or
+                     before_text[last_symbol_index] == '_'):
                 last_symbol_index -= 1
             last_symbol_index += 1
             symbol_before = before_text[last_symbol_index:]
             # Get the index of the first character in completion that is
             # alphanumeric or underscore
             last_symbol_index = 0
-            while last_symbol_index < len(completion) and completion[last_symbol_index].isalnum() or completion[last_symbol_index] == '_':
+            while last_symbol_index < len(completion) and \
+                    (completion[last_symbol_index].isalnum() or
+                     completion[last_symbol_index] == '_'):
                 last_symbol_index += 1
             symbol_after = completion[:last_symbol_index]
             symbol = symbol_before + symbol_after
