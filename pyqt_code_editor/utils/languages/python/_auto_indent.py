@@ -1,8 +1,15 @@
-import re
 from .... import settings
+from ._mask_str_in_code import mask_str_in_code
 import logging
 logging.basicConfig(level=logging.INFO, force=True)
 logger = logging.getLogger(__name__)
+
+BLOCK_KEYWORDS = (
+    "def", "class", "if", "elif", "else", "while", 
+    "for", "with", "try", "except", "finally"
+)
+OPEN_TO_CLOSE = {'(': ')', '[': ']', '{': '}'}
+CLOSE_TO_OPEN = {')': '(', ']': '[', '}': '{'}    
 
 
 def get_leading_spaces(line: str) -> int:
@@ -10,6 +17,18 @@ def get_leading_spaces(line: str) -> int:
     Return the number of leading spaces in line.
     """
     return len(line) - len(line.lstrip(' '))
+
+    
+def _is_block_opener(line: str) -> bool:
+    stripped = line.lstrip()
+    lower_stripped = stripped.lower()
+    for kw in BLOCK_KEYWORDS:
+        if lower_stripped.startswith(kw) and (
+            len(stripped) == len(kw)
+            or stripped[len(kw)] in (' ', '(', ':')
+        ):
+            return True
+    return False
 
 
 def parse_brackets(code: str) -> tuple[list[tuple[str, int, int]], dict]:
@@ -20,30 +39,20 @@ def parse_brackets(code: str) -> tuple[list[tuple[str, int, int]], dict]:
                        each as (bracket_char, line_index, col_index).
         bracket_closings: A dict mapping close_line_idx -> (open_line_idx, open_line_indent, open_bracket).
     """
-    open_to_close = {'(': ')', '[': ']', '{': '}'}
-    close_to_open = {')': '(', ']': '[', '}': '{'}
-    
-    # A naive bracket parser that ignores strings by removing them first
-    # (this is simplistic; real logic may need to handle triple quotes, etc.)
-    def remove_strings(line: str) -> str:
-        return re.sub(r'(".*?"|\'.*?\')', '', line)
-    
+
     lines = code.split("\n")
     bracket_stack = []
     bracket_closings = {}
     
-    for i, raw_line in enumerate(lines):
-        # remove quoted strings
-        stripped_line = remove_strings(raw_line)
-        
+    for i, line in enumerate(lines):        
         j = 0
-        while j < len(stripped_line):
-            ch = stripped_line[j]
-            if ch in open_to_close:
+        while j < len(line):
+            ch = line[j]
+            if ch in OPEN_TO_CLOSE:
                 bracket_stack.append((ch, i, j))
-            elif ch in close_to_open:
+            elif ch in CLOSE_TO_OPEN:
                 # If there's something on the stack and it matches, pop it
-                if bracket_stack and bracket_stack[-1][0] == close_to_open[ch]:
+                if bracket_stack and bracket_stack[-1][0] == CLOSE_TO_OPEN[ch]:
                     open_bracket_char, open_line_idx, open_col_idx = bracket_stack.pop()
                     # record the closing bracket
                     bracket_closings[i] = (open_line_idx, get_leading_spaces(lines[open_line_idx]), open_bracket_char)
@@ -57,16 +66,15 @@ def _get_unclosed_open_idx(code : str, open_char : str,
     """Returns the index of the last unclosed unopening character, such as an
     opening parenthesis, or None if no unclosed opening character was found.
     """
-    # We only consider code from the end of the last code comment or the last
-    # quote, whatever comes last. This is a cheap way to avoid the auto indenter
-    # from being confused by parentheses in strings or comments.                 
-    last_quote = max(code.rfind("'"), code.rfind('"'))
+    # We only consider code from the end of the last code comment. This is a
+    # cheap way to avoid the auto indenter from being confused by parentheses
+    # in comments.
     last_comment = code.rfind('#')
     if last_comment >= 0:
         last_comment_end = code[last_comment:].find('\n')
         if last_comment_end >= 0:
             last_comment += last_comment_end
-    search_start = max(0, last_quote, last_comment)         
+    search_start = max(0, last_comment)
     if search_start:
         code = code[search_start:]
     n_open_required = 1    
@@ -112,7 +120,8 @@ def _line_col_from_idx(full_text, char_index):
     return (line, column)    
     
 
-def _indent_inside_unclosed_call_def_or_class(code: str, char_idx : int) -> int:
+def _indent_inside_unclosed_call_def_or_class(code: str, lines: list,
+                                              char_idx : int) -> int:
     """
     Return after opening parenthesis as part of function call should trigger indent
     
@@ -140,7 +149,14 @@ def _indent_inside_unclosed_call_def_or_class(code: str, char_idx : int) -> int:
     ```
     function(arg1,>
              |
-    ```    
+    ```
+             
+    Return after opening parenthesis and one or more arguments as part of function call should trigger matching indent to first argument, also when the argument contains default values with strings.
+    
+    ```
+    function("arg1", arg2='default', arg3=\"\"\"test\"\"\",>
+             |
+    ```
         
     Return after parenthesis and one or more arguments after function definition should trigger matching indent to first argument
     
@@ -223,10 +239,8 @@ def _indent_inside_unclosed_call_def_or_class(code: str, char_idx : int) -> int:
             |
     ```            
     """
-    lines = code.splitlines()
     if not lines:
-        return 0
-    
+        return 0    
     line_idx, col_idx = _line_col_from_idx(code, char_idx)
     # Get the line where the last unclosed parenthesis is
     open_line = lines[line_idx]
@@ -249,7 +263,7 @@ def _indent_inside_unclosed_call_def_or_class(code: str, char_idx : int) -> int:
     return len(prefix) + after_paren_offset
 
 
-def _indent_after_block_opener(code: str) -> int:
+def _indent_after_block_opener(code: str, lines: list) -> int:
     """
     Return after function definition should trigger indent
     
@@ -403,24 +417,7 @@ def _indent_after_block_opener(code: str) -> int:
         if x == y:>
             |
     ```
-    """
-    BLOCK_KEYWORDS = (
-        "def", "class", "if", "elif", "else", "while", 
-        "for", "with", "try", "except", "finally"
-    )
-    
-    def is_block_opener(line: str) -> bool:
-        stripped = line.lstrip()
-        lower_stripped = stripped.lower()
-        for kw in BLOCK_KEYWORDS:
-            if lower_stripped.startswith(kw) and (
-                len(stripped) == len(kw)
-                or stripped[len(kw)] in (' ', '(', ':')
-            ):
-                return True
-        return False
-    
-    lines = code.splitlines()
+    """    
     if not lines:
         return 0
     
@@ -433,7 +430,7 @@ def _indent_after_block_opener(code: str) -> int:
     # If it DOES end with a colon, we see if we can locate the block opener line
     block_opener_idx = len(lines) - 1
     for i in range(len(lines) - 1, -1, -1):
-        if is_block_opener(lines[i]):
+        if _is_block_opener(lines[i]):
             block_opener_idx = i
             break
     
@@ -475,6 +472,13 @@ def _indent_inside_uncloded_list_tuple_set_or_dict(code: str, char_idx: int) -> 
     
     ```
     l = [item1,>
+         |
+    ```
+         
+    Return after opening of list with one or more elements should trigger matching indent to first element, also when the element is a string
+    
+    ```
+    l = ['item1',>
          |
     ```
     
@@ -733,6 +737,7 @@ def python_auto_indent(code: str) -> int:
     |
     ```
     """
+    code = mask_str_in_code(code)
     lines = code.splitlines()
     # If code ends with a newline => cursor is on a fresh line
     if code.endswith('\n'):
@@ -744,7 +749,7 @@ def python_auto_indent(code: str) -> int:
     # 1. ends with colon => block opener
     if last_line.endswith(":"):
         logging.info('indent after block opener')
-        return _indent_after_block_opener(code)
+        return _indent_after_block_opener(code, lines)
             
     # 2. unmatched '(' => function call/def or tuple
     last_paren_idx_tuple = _get_unclosed_open_idx(code, '(', ')')
@@ -758,7 +763,7 @@ def python_auto_indent(code: str) -> int:
             if preceding_char.isalnum() or preceding_char == "_":
                 logging.info("indent as unclosed call/def")
                 return _indent_inside_unclosed_call_def_or_class(
-                    code, last_paren_idx_tuple)
+                    code, lines, last_paren_idx_tuple)
             else:
                 logging.info("indent as unclosed tuple")
                 return _indent_inside_uncloded_list_tuple_set_or_dict(
