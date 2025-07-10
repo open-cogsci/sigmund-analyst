@@ -74,6 +74,7 @@ class EditorWorkspace:
             self._editor.setTextCursor(text_cursor)
         else:
             self._editor.setPlainText(content)
+        self._editor.set_modified(True)
     
     def has_changed(self, content, language):
         text_cursor = self._editor.textCursor()
