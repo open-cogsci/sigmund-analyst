@@ -40,10 +40,17 @@ def mask_str_in_code(code: str, mask_char: str = 'X') -> str:
     """
     # First handle f-strings separately using regex
     # This regex matches f-strings with their content
-    fstring_pattern = r'(f)(""".*?"""|\'\'\'.*?\'\'\'|".*?"|\'.*?\')'
+    # Make sure 'f' is preceded by something that indicates start of a new token
+    fstring_pattern = r'(?:^|[^a-zA-Z0-9_"\'])(f)(""".*?"""|\'\'\'.*?\'\'\'|".*?"|\'.*?\')'
     
     def mask_fstring(match):
-        prefix = match.group(1)
+        # Get the character before 'f' (if any)
+        full_match = match.group(0)
+        prefix_char = ''
+        if not full_match.startswith('f'):
+            prefix_char = full_match[0]
+            
+        prefix = match.group(1)  # 'f'
         full_string = match.group(2)
         quote = ''
         content = ''
@@ -57,7 +64,7 @@ def mask_str_in_code(code: str, mask_char: str = 'X') -> str:
         
         # Mask everything in f-string content
         masked_content = mask_char * len(content)
-        return prefix + quote + masked_content + quote
+        return prefix_char + prefix + quote + masked_content + quote
     
     # Apply f-string masking
     code = re.sub(fstring_pattern, mask_fstring, code, flags=re.DOTALL)
@@ -76,7 +83,6 @@ def mask_str_in_code(code: str, mask_char: str = 'X') -> str:
             if token.type == tokenize.STRING:
                 # Get the string content including quotes
                 string_value = token.string
-                
                 # Skip if it looks like an f-string (already handled)
                 if string_value.startswith(('f"', "f'", 'f"""', "f'''")):
                     # Add any code between last token and this one

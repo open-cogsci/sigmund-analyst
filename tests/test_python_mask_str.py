@@ -39,11 +39,21 @@ print(f"Hello {name}!")'''
     expected = '''name = "XXXX"
 print(f"XXXXXXXXXXXXX")'''
     assert result == expected
+    
+def test_non_f_string():
+    code = 'call(".2f")\n"""test"""'
+    result = mask_str_in_code(code)
+    assert result == 'call("XXX")\n"""XXXX"""'
 
 def test_raw_string():
     code = r'path = r"C:\Users\test"'
     result = mask_str_in_code(code)
     assert result == r'path = r"XXXXXXXXXXXXX"'
+    
+def test_non_r_string():
+    code = 'call(".2r")\n"""test"""'
+    result = mask_str_in_code(code)
+    assert result == 'call("XXX")\n"""XXXX"""'    
 
 def test_custom_mask_char():
     code = "print('secret')"
