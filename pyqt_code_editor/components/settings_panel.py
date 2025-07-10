@@ -25,8 +25,9 @@ class SettingsWidget(QWidget):
     types are int, bool and str.    
     """
     
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, visible_categories=None):
         super().__init__(parent)
+        self._visible_categories = visible_categories
         self.setup_ui()
         self.load_settings()
         
@@ -45,7 +46,9 @@ class SettingsWidget(QWidget):
         self.scroll_area = QScrollArea()
         self.scroll_area.setWidgetResizable(True)
         self.scroll_widget = QWidget()
-        self.scroll_layout = QVBoxLayout(self.scroll_widget)
+        self.scroll_layout = QFormLayout(self.scroll_widget)
+        self.scroll_layout.setContentsMargins(0, 0, 0, 0)
+        self.scroll_area.setFrameStyle(QScrollArea.NoFrame)
         self.scroll_area.setWidget(self.scroll_widget)
         
         # Add scroll area to main layout
@@ -72,25 +75,24 @@ class SettingsWidget(QWidget):
         
         # Create a form for each category
         for category, setting_names in categories.items():
-            if not setting_names:
+            if self._visible_categories is not None and \
+                    category not in self._visible_categories:
                 continue
-                
+            if not setting_names:
+                continue                
             group_box = QGroupBox(category)
-            form_layout = QFormLayout(group_box)
-            form_layout.setContentsMargins(*themes.OUTER_CONTENT_MARGINS)
-            
+            form_layout = QFormLayout(group_box)            
             for setting_name in setting_names:
                 value = getattr(settings, setting_name)
                 widget = self.create_widget_for_setting(setting_name, value)
                 
                 if widget:
-                    form_layout.addRow(setting_name.replace('_', ' ').title() + ":", widget)
+                    form_layout.addRow(
+                        setting_name.replace('_', ' ').title() + ":", widget)
                     self.setting_widgets[setting_name] = widget
             
-            self.scroll_layout.addWidget(group_box)
+            self.scroll_layout.addRow(group_box, None)
         
-        self.scroll_layout.addStretch()
-    
     def create_widget_for_setting(self, setting_name, value):
         """Create appropriate widget based on setting type"""
         logger.debug(f"Creating widget for setting {setting_name} with value {value}")
