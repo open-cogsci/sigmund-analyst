@@ -1,4 +1,3 @@
-import os
 import logging
 from qtpy.QtWidgets import (
     QDialog,
@@ -10,6 +9,7 @@ from qtpy.QtWidgets import (
 )
 from qtpy.QtCore import Qt, QSortFilterProxyModel, QModelIndex
 from qtpy.QtGui import QStandardItemModel, QStandardItem
+from .. import settings, themes
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +42,26 @@ class MultiNeedleFilterProxyModel(QSortFilterProxyModel):
             if needle not in item_text_lower:
                 return False
         return True
+        
+STYLESHEET = '''
+QuickOpenDialog {{
+    background-color: {background};
+    color: {foreground};
+    padding: 8px;
+    border-radius: 4px;
+}}
+QLineEdit {{
+    margin-bottom: 4px;
+}}
+QLineEdit, QListView {{
+    color: {foreground};
+    border: none;
+    font-family: {font_family};
+    font-size: {font_size}px;
+    background-color: {selection_background};
+    padding: 4px;
+}}
+'''
 
 class QuickOpenDialog(QDialog):
     """
@@ -52,11 +72,20 @@ class QuickOpenDialog(QDialog):
     """
     def __init__(self, parent, items, title="Quick Open"):
         super().__init__(parent)
+        color_scheme = themes.THEMES.get(settings.color_scheme)
+        if color_scheme:            
+            self.setStyleSheet(STYLESHEET.format(
+                background=color_scheme['background_color'],
+                foreground=color_scheme['text_color'],
+                selection_background=color_scheme['selection_background'],
+                font_size=settings.font_size,
+                font_family=settings.font_family
+            ))
         self.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
         self.setWindowModality(Qt.ApplicationModal)
 
         self.setWindowTitle(title)
-        self.resize(400, 400)
+        self.resize(800, 400)
 
         layout = QVBoxLayout(self)
         self._filter_edit = QLineEdit(self)
@@ -65,6 +94,10 @@ class QuickOpenDialog(QDialog):
 
         self._list_view = QListView(self)
         self._list_view.setSelectionMode(QAbstractItemView.SingleSelection)
+        self._list_view.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self._list_view.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self._list_view.setTextElideMode(Qt.ElideMiddle)
+        
         layout.addWidget(self._list_view)
 
         self._items = items
