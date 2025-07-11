@@ -50,6 +50,8 @@ class LineNumber:
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self._line_number_rects = {}
+        self._line_rects = {}
         self.setMouseTracking(True)
         # Create the line number area
         self.lineNumberArea = LineNumberArea(self)
