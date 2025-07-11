@@ -2,8 +2,9 @@ import os
 import multiprocessing
 from qtpy.QtWidgets import QDockWidget, QWidget, QVBoxLayout, QHBoxLayout, \
     QLineEdit, QCheckBox, QPushButton, QTreeWidget, QTreeWidgetItem, \
-    QAbstractItemView
+    QAbstractItemView, QLabel
 from qtpy.QtCore import Qt, QTimer, Signal
+import fnmatch
 
 
 def search_in_files_worker(files, search_text, case_sensitive, whole_word, regex, output_queue):
@@ -53,7 +54,8 @@ class FindInFiles(QDockWidget):
         super().__init__("Find in Files", parent)
         self.setAllowedAreas(Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea)
         
-        self._files = files_list[:]  # store a copy
+        self._all_files = files_list[:]  # store all files
+        self._filtered_files = []  # files after extension filter
         self._search_process = None
         self._output_queue = None
         
@@ -83,6 +85,20 @@ class FindInFiles(QDockWidget):
         controls_layout.addWidget(self.searchBtn)
         controls_layout.setContentsMargins(0, 0, 0, 0)
         
+        # File type filter row
+        filter_layout = QHBoxLayout()
+        layout.addLayout(filter_layout)
+        
+        filter_label = QLabel("File types:", self)
+        self.fileTypesInput = QLineEdit(self)
+        self.fileTypesInput.setPlaceholderText("e.g. .py .js .html (default: .*)")
+        self.fileTypesInput.setText(".*")  # Default to all files
+        self.fileTypesInput.setToolTip("Space or comma separated extensions. Use .* for all files.")
+        
+        filter_layout.addWidget(filter_label)
+        filter_layout.addWidget(self.fileTypesInput)
+        filter_layout.setContentsMargins(0, 0, 0, 0)
+        
         # Tree Widget for results
         self.resultsTree = QTreeWidget(self)
         self.resultsTree.setHeaderLabels(["File / Line", "Preview"])
@@ -104,6 +120,41 @@ class FindInFiles(QDockWidget):
         super().showEvent(event)
         self.searchInput.setFocus()        
     
+    def _parse_extensions(self, text):
+        """Parse extension filter text into a list of patterns"""
+        if not text or text.strip() == ".*":
+            return ["*"]  # Match all files
+        
+        # Split by spaces or commas
+        import re
+        extensions = re.split(r'[,\s]+', text.strip())
+        
+        # Convert extensions to glob patterns
+        patterns = []
+        for ext in extensions:
+            if ext:
+                if not ext.startswith('.'):
+                    ext = '.' + ext
+                patterns.append('*' + ext)
+        
+        return patterns if patterns else ["*"]
+    
+    def _filter_files_by_extension(self):
+        """Filter files based on the extension patterns"""
+        patterns = self._parse_extensions(self.fileTypesInput.text())
+        
+        if patterns == ["*"]:
+            # No filtering needed
+            self._filtered_files = self._all_files[:]
+            return
+        
+        self._filtered_files = []
+        for file_path in self._all_files:
+            for pattern in patterns:
+                if fnmatch.fnmatch(os.path.basename(file_path).lower(), pattern.lower()):
+                    self._filtered_files.append(file_path)
+                    break
+    
     def _start_search(self):
         # Kill any existing worker first
         if self._search_process and self._search_process.is_alive():
@@ -112,10 +163,26 @@ class FindInFiles(QDockWidget):
         # Clear old results
         self.resultsTree.clear()
         
+        # Filter files by extension
+        self._filter_files_by_extension()
+        
+        # Show file count in status
+        file_count_item = QTreeWidgetItem(self.resultsTree)
+        file_count_item.setText(0, f"Searching {len(self._filtered_files)} files...")
+        file_count_item.setForeground(0, Qt.gray)
+        
+        # If no files match the filter, show message
+        if not self._filtered_files:
+            self.resultsTree.clear()
+            no_files_item = QTreeWidgetItem(self.resultsTree)
+            no_files_item.setText(0, "No files match the specified extensions")
+            no_files_item.setForeground(0, Qt.gray)
+            return
+        
         # Prepare
         self._output_queue = multiprocessing.Queue()
         args = (
-            self._files,
+            self._filtered_files,
             self.searchInput.text(),
             self.caseBox.isChecked(),
             self.wholeWordBox.isChecked(),
@@ -136,6 +203,7 @@ class FindInFiles(QDockWidget):
                 return
             
             # Grab everything from the queue
+            first_result = True
             while not self._output_queue.empty():
                 msg = self._output_queue.get()
                 if not msg:
@@ -143,6 +211,13 @@ class FindInFiles(QDockWidget):
                 kind = msg[0]
                 
                 if kind == "found":
+                    # Clear the "Searching..." message on first result
+                    if first_result and self.resultsTree.topLevelItemCount() == 1:
+                        first_item = self.resultsTree.topLevelItem(0)
+                        if "Searching" in first_item.text(0):
+                            self.resultsTree.clear()
+                        first_result = False
+                    
                     # we have file + list of (line_num, text)
                     file_path = msg[1]
                     lines = msg[2]
@@ -154,6 +229,15 @@ class FindInFiles(QDockWidget):
                 elif kind == "done":
                     # done means the worker finished scanning
                     self._search_process = None
+                    
+                    # If no results found, show message
+                    if self.resultsTree.topLevelItemCount() == 1:
+                        first_item = self.resultsTree.topLevelItem(0)
+                        if "Searching" in first_item.text(0):
+                            self.resultsTree.clear()
+                            no_results_item = QTreeWidgetItem(self.resultsTree)
+                            no_results_item.setText(0, "No matches found")
+                            no_results_item.setForeground(0, Qt.gray)
     
     def _add_file_matches(self, file_path, lines):
         # Create a top-level item for file
