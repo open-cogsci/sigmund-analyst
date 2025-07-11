@@ -99,7 +99,7 @@ class Complete:
         self._cm_completion_popup.hide()
         
     def focusOutEvent(self, event):
-        """Make sure the calltip doesn't stay open when we scroll the viewport.
+        """Make sure the calltip doesn't stay open when the widget loses focus.
         """
         super().focusOutEvent(event)
         self._cm_hide_calltip()
@@ -516,9 +516,7 @@ class Complete:
             global_pos = global_bottom_left
             logger.info("Positioning calltip below cursor.")
     
-        print(f'intended position: {global_pos}')
         self._cm_calltip_widget.move(global_pos)
-        print(f'actual position: {self._cm_calltip_widget.pos()}')
         self._cm_calltip_widget.show()
 
     def closeEvent(self, event):

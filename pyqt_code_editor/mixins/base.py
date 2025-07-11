@@ -15,6 +15,7 @@ class Base:
     code_editor_language = 'text'
     modification_changed = Signal(object, bool)
     received_focus = Signal(object)
+    lost_focus = Signal(object)
     
     def __init__(self, *args, **kwargs):
         # Optionally set the language. This is mainly for generic editors that
@@ -52,6 +53,13 @@ class Base:
         """
         super().focusInEvent(event)
         self.received_focus.emit(self)
+        
+    def focusOutEvent(self, event):
+        """Allows managing widgets, such as the editor panel, to keep track of
+        which editor is active
+        """
+        super().focusOutEvent(event)
+        self.lost_focus.emit(self)        
     
     def refresh(self):
         """Can be called to indicate that the interface needs to be refreshed,
