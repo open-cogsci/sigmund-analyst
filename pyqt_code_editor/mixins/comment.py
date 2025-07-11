@@ -17,12 +17,31 @@ class Comment:
                                (default "# " for Python).
         """
         super().__init__(*args, **kwargs)
-        # The text to prepend for a commented line
-        self.code_editor_comment_string
         self._comment_shortcut = QShortcut(
             QKeySequence(settings.shortcut_comment), self)
         self._comment_shortcut.setContext(Qt.WidgetWithChildrenShortcut)
         self._comment_shortcut.activated.connect(self._toggle_comment)
+        
+    def keyPressEvent(self, event):
+        # When a return is pressed on a commented line, the comment should
+        # continue on the next line
+        if event.key() in (Qt.Key_Enter, Qt.Key_Return):
+            cursor = self.textCursor()
+            block = cursor.block()
+            line_text = block.text()            
+            # Check if the current line is a comment
+            stripped = line_text.lstrip()
+            if stripped.startswith(self.code_editor_comment_string[0]):
+                # Extract the indentation from the current line
+                indentation = line_text[:len(line_text) - len(stripped)]                
+                # Insert newline with same indentation plus comment marker
+                cursor.beginEditBlock()
+                cursor.insertText(
+                    '\n' + indentation + self.code_editor_comment_string)
+                cursor.endEditBlock()
+                event.accept()
+                return
+        super().keyPressEvent(event)    
 
     def _toggle_comment(self):
         """Toggle comment on the current selection or current line."""

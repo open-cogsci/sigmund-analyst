@@ -6,7 +6,7 @@ from pyqt_code_editor.mixins import Complete, PythonAutoIndent, \
 
 
 class Editor(LineNumber, Zoom, SmartBackspaceDelete, PythonAutoPair, Complete,
-             PythonAutoIndent, Comment, SearchReplace, FileLink, Execute,
+             Comment, PythonAutoIndent, SearchReplace, FileLink, Execute,
              Theme, Check, Shortcuts, Symbols, Base,
              QPlainTextEdit):
                  
