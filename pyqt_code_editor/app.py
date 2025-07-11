@@ -26,9 +26,8 @@ class MainWindow(QMainWindow):
         super().__init__()
         logger.info("MainWindow initialized")
         # If no path is provided, fall back to current dir
-        if not root_path:
-            root_path = settings.current_folder
-
+        if root_path:
+            settings.project_folders = settings.current_folder = root_path
         self.setWindowTitle(f"Sigmund Analyst {__version__}")
         # The editor panel provides splittable editor tabs
         self._editor_panel = EditorPanel()
@@ -38,8 +37,9 @@ class MainWindow(QMainWindow):
         # Track if project explorers are hidden as a group
         self._project_explorers_hidden = False
         # Open initial project explorer
-        self._open_project_explorer(root_path)
-
+        for project_folder in str(settings.project_folders).split(':'):
+            if project_folder:
+                self._open_project_explorer(project_folder)
         # Set up the workspace explorer
         self._workspace_explorer = WorkspaceExplorer(parent=self)
         self.addDockWidget(Qt.RightDockWidgetArea, self._workspace_explorer)

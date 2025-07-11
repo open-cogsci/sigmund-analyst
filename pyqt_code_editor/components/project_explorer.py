@@ -262,8 +262,12 @@ class ProjectExplorer(QDockWidget):
         if not selected_dir:
             return None
         settings.current_folder = selected_dir
+        # Add selected folder to project folders but make sure we don't 
+        # duplicate
+        settings.project_folders = ':'.join(
+            set(str(settings.project_folders).split(':')) | {selected_dir})
         explorer = cls(editor_panel, root_path=selected_dir, parent=parent)
-        return explorer        
+        return explorer
         
     def _toggle_gitignore(self, enabled):
         """Toggles the .gitignore filter on or off and refreshes the model.
@@ -514,6 +518,10 @@ class ProjectExplorer(QDockWidget):
         self._clipboard_operation = None
         self._clipboard_source_path = None
         
-    def closeEvent(self, event):
+    def closeEvent(self, event):        
+        # Add selected folder to project folders but make sure we don't 
+        # duplicate
+        settings.project_folders = ':'.join(
+            set(str(settings.project_folders).split(':')) - {self._display_root})
         super().closeEvent(event)
         self.closed.emit(self)
