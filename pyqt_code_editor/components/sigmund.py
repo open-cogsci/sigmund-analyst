@@ -98,7 +98,7 @@ class Sigmund(Dock):
         super().__init__('Sigmund', parent)
         self.setObjectName("sigmund")
         workspace = EditorWorkspace(editor_panel)
-        self.sigmund_widget = SigmundWidget(self)
+        self.sigmund_widget = SigmundWidget(self, application='Sigmund Analyst')
         self.sigmund_widget.setStyleSheet(f'font-size: {settings.font_size}pt')
         self.sigmund_widget.set_workspace_manager(workspace)
         self.setWidget(self.sigmund_widget)
