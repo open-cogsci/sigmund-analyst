@@ -84,6 +84,7 @@ class Settings(QObject):
     default_filename = SettingProperty('untitled.txt', "Files")
     default_language = SettingProperty('python', "Files")
     default_encoding = SettingProperty('utf-8', "Files")
+    max_file_size = SettingProperty(5 * 1024 ** 2, "Files")  # 5 MB)
     
     # Keyboard shortcuts
     shortcut_move_line_up = SettingProperty('Alt+Up', "Shortcuts")

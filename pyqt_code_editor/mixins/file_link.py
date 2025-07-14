@@ -40,7 +40,12 @@ class FileLink:
         if not path.is_file():
             raise FileNotFoundError(f"No such file: {path}")
 
+        # Check file size
+        file_size = path.stat().st_size
+        is_large = file_size > settings.max_file_size
+        
         raw_data = path.read_bytes()
+        encoding_unknown = False
 
         if encoding is None:
             # First see if everything is within ASCII range
@@ -51,14 +56,55 @@ class FileLink:
             except UnicodeDecodeError:
                 # Not pure ASCII; let chardet pick
                 detect_result = chardet.detect(raw_data)
-                # If detection fails or returns None, default to utf-8
-                used_encoding = detect_result["encoding"] or "utf-8"
+                # If detection fails or returns None, or confidence is low
+                if (detect_result is None or 
+                    detect_result.get("encoding") is None or
+                    detect_result.get("confidence", 0) < 0.7):
+                    used_encoding = "utf-8"
+                    encoding_unknown = True
+                else:
+                    used_encoding = detect_result["encoding"]
         else:
             used_encoding = encoding
+            
+        # Show warning if file is large or encoding is uncertain
+        if is_large or encoding_unknown:
+            warnings = []
+            if is_large:
+                size_mb = file_size / (1024 * 1024)
+                warnings.append(f"This file is {size_mb:.1f} MB, which exceeds the recommended maximum of {settings.max_file_size / (1024 * 1024):.1f} MB.")
+            if encoding_unknown:
+                warnings.append("The file encoding could not be reliably detected. It may not display correctly.")
+            
+            warning_message = "\n\n".join(warnings)
+            warning_message += "\n\nDo you want to continue opening this file?"
+            
+            reply = QMessageBox.warning(
+                self,
+                "File Warning",
+                warning_message,
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.No
+            )
+            
+            if reply != QMessageBox.Yes:
+                logger.info(f"User declined to open file: {path}")
+                return
+                
         logger.info(f'opening file as {used_encoding}')
         # Try reading with the chosen encoding
-        with path.open("r", encoding=used_encoding) as f:
-            content = f.read()
+        try:
+            with path.open("r", encoding=used_encoding) as f:
+                content = f.read()
+        except UnicodeDecodeError as e:
+            # If decoding fails, offer to try as binary or cancel
+            reply = QMessageBox.critical(
+                self,
+                "Encoding Error",
+                f"Failed to decode file with {used_encoding} encoding.\n{str(e)}\n\nThis may not be a text file.",
+                QMessageBox.Cancel
+            )
+            return
 
         # Store the content in the editor
         self.setPlainText(content)
