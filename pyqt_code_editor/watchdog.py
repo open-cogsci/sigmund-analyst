@@ -19,6 +19,7 @@ import signal
 import sys
 import time
 import logging
+import psutil
 logging.basicConfig(level=logging.INFO, force=True)
 logger = logging.getLogger(__name__)
 
@@ -39,7 +40,7 @@ def _watchdog_main(main_pid, child_conn):
     
     while True:
         # Check if main process is still alive
-        if not _is_process_alive(main_pid):
+        if not psutil.pid_exists(main_pid):
             logger.info("watchdog: Main process died, killing all subprocesses")
             _kill_all_processes(registered_pids)
             sys.exit(0)
@@ -60,16 +61,6 @@ def _watchdog_main(main_pid, child_conn):
         time.sleep(_CHECK_INTERVAL)
 
 
-def _is_process_alive(pid):
-    """Check if a process with the given pid is alive."""
-    try:
-        # Sending signal 0 checks if process exists without affecting it
-        os.kill(pid, 0)
-        return True
-    except OSError:
-        return False
-
-
 def _kill_all_processes(pids):
     """Kill all processes with the given pids."""
     for pid in pids:
@@ -86,7 +77,7 @@ def _kill_all_processes(pids):
     # Force kill any remaining processes
     for pid in pids:
         try:
-            if _is_process_alive(pid):
+            if psutil.pid_exists(pid):
                 os.kill(pid, signal.SIGKILL)
                 logger.info(f"watchdog: Sent SIGKILL to {pid}")
         except OSError:
