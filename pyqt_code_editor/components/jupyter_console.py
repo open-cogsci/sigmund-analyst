@@ -5,12 +5,14 @@ from qtconsole.rich_jupyter_widget import RichJupyterWidget
 from qtconsole.manager import QtKernelManager
 from jupyter_client.kernelspec import KernelSpecManager
 import qtawesome as qta
+import sys
 import os
 import logging
 import uuid
 import json
 from concurrent.futures import Future
 from .. import settings
+from ..environment_manager import environment_manager
 from ..themes import THEMES, OUTER_CONTENT_MARGINS, HORIZONTAL_SPACING
 from ..widgets import Dock
 from .. import watchdog
@@ -359,8 +361,8 @@ print(json.dumps({result_var}))
 class JupyterConsole(Dock):
     """Dockable widget containing tabbed Jupyter consoles"""
     
-    execution_complete = Signal(str, object)  # Signal for output interception
-    workspace_updated = Signal(dict)          # Signal for workspace updates
+    execution_complete = Signal(str, object)
+    workspace_updated = Signal(dict)
     
     def __init__(self, parent=None, default_kernel='python3'):
         super().__init__("Jupyter Console", parent)
@@ -370,7 +372,7 @@ class JupyterConsole(Dock):
         # ---------------------------------------------------------------------
         # Kernel cache
         # ---------------------------------------------------------------------
-        self.available_kernels = []  # will be filled by refresh_kernel_menu()
+        self.available_kernels = {}  # will be filled by refresh_kernel_menu()
         
         # ---------------------------------------------------------------------
         # UI setup
@@ -429,6 +431,14 @@ class JupyterConsole(Dock):
         console_tab = self.tab_widget.widget(index)
         if console_tab:
             console_tab.update_workspace()
+            spec = self.available_kernels.get(console_tab.kernel_name, None)
+            if spec:
+                python_executable = spec['spec']['argv'][0]
+            else:
+                python_executable = sys.executable
+            environment_manager.set_environment(console_tab.kernel_name,
+                                                python_executable,
+                                                'python')
     
     # -------------------------------------------------------------------------
     # Kernel handling
@@ -439,12 +449,9 @@ class JupyterConsole(Dock):
         
         # Get available kernelspecs
         kernel_spec_manager = HomeAwareKernelSpecManager()
-        specs = kernel_spec_manager.get_all_specs()
-        
-        # Cache available kernels
-        self.available_kernels = list(specs.keys())
-        
-        for spec_name, spec in specs.items():
+        self.available_kernels = kernel_spec_manager.get_all_specs()
+        self.fallback_kernel = list(self.available_kernels.keys())[0]
+        for spec_name, spec in self.available_kernels.items():
             display_name = spec['spec']['display_name']
             action = QAction(display_name, self)
             action.setData(spec_name)
@@ -462,12 +469,11 @@ class JupyterConsole(Dock):
         """
         if kernel_name not in self.available_kernels:
             if self.available_kernels:
-                fallback = self.available_kernels[0]
                 logger.warning(
                     "Requested kernel '%s' not found. "
-                    "Falling back to '%s'.", kernel_name, fallback
+                    "Falling back to '%s'.", kernel_name, self.fallback_kernel
                 )
-                kernel_name = fallback
+                kernel_name = self.fallback_kernel
             else:
                 logger.error("No available kernels found. Cannot create console tab.")
                 return None

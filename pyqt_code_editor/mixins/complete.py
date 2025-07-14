@@ -1,9 +1,12 @@
+import os
+import sys
 import logging
 from qtpy.QtCore import QTimer, Qt
 from qtpy.QtGui import QTextCursor
 from qtpy.QtWidgets import QApplication
 from ..widgets.completion_popup import CompletionPopup
 from ..widgets.calltip_widget import CalltipWidget
+from ..environment_manager import environment_manager
 from .. import settings
 logging.basicConfig(level=logging.INFO, force=True)
 logger = logging.getLogger(__name__)
@@ -273,7 +276,8 @@ class Complete:
                                  cursor_pos=cursor_pos, full=full,
                                  multiline=multiline,
                                  path=self.code_editor_file_path,
-                                 language=self.code_editor_language)
+                                 language=self.code_editor_language,
+                                 env_path=environment_manager.path)
 
     def _cm_request_calltip(self):
         """Send a calltip request."""
@@ -284,7 +288,8 @@ class Complete:
         self.send_worker_request(action='calltip', code=code,
                                  cursor_pos=cursor_pos,
                                  path=self.code_editor_file_path,
-                                 language=self.code_editor_language)
+                                 language=self.code_editor_language,
+                                 env_path=environment_manager.path)
 
     def _cm_hide_calltip(self):
         """Hide the calltip widget."""
@@ -533,3 +538,6 @@ class Complete:
     def update_theme(self):
         super().update_theme()
         self._cm_calltip_widget.apply_stylesheet()
+
+    def _current_environment(self):
+        return os.environ.get('SIGMUND_PYENV', sys.executable)

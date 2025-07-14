@@ -1,14 +1,15 @@
 from ..providers import jedi, codestral, ruff
 
 
-def complete(code, cursor_pos, path, multiline, full):
+def complete(code, cursor_pos, path, multiline, full, env_path):
     if full or multiline:
         codestral_completions = codestral.codestral_complete(
             code, cursor_pos, path=path, multiline=multiline)
     else:
         codestral_completions = []
     if not multiline:
-        jedi_completions = jedi.jedi_complete(code, cursor_pos, path=path)
+        jedi_completions = jedi.jedi_complete(code, cursor_pos, path=path,
+                                              env_path=env_path)
     else:
         jedi_completions = []
     # If there is at least one jedi completion, it is always insert at first.

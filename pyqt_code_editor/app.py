@@ -442,7 +442,7 @@ class MainWindow(QMainWindow):
             open_file_callback=self._editor_panel.open_file,
         )
         dlg.exec_()
-        
+            
         
 def launch_app():
     app = QApplication(sys.argv)

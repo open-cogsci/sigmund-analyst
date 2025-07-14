@@ -68,9 +68,11 @@ def main_worker_process_function(request_queue, result_queue):
                 path = request.get('path', None)
                 multiline = request.get('multiline', False)
                 full = request.get('full', False)
-                logger.info(f"Performing code completion: language='{language}', multiline={multiline}, path={path}")
+                env_path = request.get('env_path', None)
+                logger.info(f"Performing code completion: language='{language}', multiline={multiline}, path={path}, env_path={env_path}")
                 completions = worker_functions.complete(
-                    code, cursor_pos, path=path, multiline=multiline, full=full)
+                    code, cursor_pos, path=path, multiline=multiline, full=full,
+                    env_path=env_path)
             if not completions:
                 logger.info("No completions")
             else:
@@ -90,9 +92,10 @@ def main_worker_process_function(request_queue, result_queue):
             else:
                 code = request.get('code', '')
                 path = request.get('path', None)
-                logger.info(f"Performing calltip: language='{language}', path={path}")
+                env_path = request.get('env_path', None)
+                logger.info(f"Performing calltip: language='{language}', path={path}, env_path={env_path}")
                 signatures = worker_functions.calltip(
-                    code, cursor_pos, path=path)
+                    code, cursor_pos, path=path, env_path=env_path)
             if signatures is None:
                 logger.info("No calltip signatures. Sending result back.")
             else:
