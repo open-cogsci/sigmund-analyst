@@ -4,7 +4,7 @@ from ..providers import jedi, codestral, ruff
 def complete(code, cursor_pos, path, multiline, full, env_path):
     if full or multiline:
         codestral_completions = codestral.codestral_complete(
-            code, cursor_pos, path=path, multiline=multiline)
+            code, cursor_pos, multiline=multiline)
     else:
         codestral_completions = []
     if not multiline:

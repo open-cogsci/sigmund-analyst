@@ -1,6 +1,6 @@
 import re
 
-def symbol_complete(code: str, cursor_pos: int, path: str | None) -> list[str]:
+def symbol_complete(code: str, cursor_pos: int) -> list[str]:
     """
     A helper function for code completion that is based on all the symbols
     that are detected in the code in a language-agnostic way. The code is split

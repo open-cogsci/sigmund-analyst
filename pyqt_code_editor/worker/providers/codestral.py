@@ -5,7 +5,7 @@ logger = logging.getLogger(__name__)
 client = None
 
 
-def codestral_complete(code: str, cursor_pos: int, path: str | None,
+def codestral_complete(code: str, cursor_pos: int,
                        multiline: bool = False) -> list[str]:
     global client
 
