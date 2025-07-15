@@ -4,7 +4,7 @@ import logging
 from qtpy.QtWidgets import QMainWindow, QShortcut, QMessageBox, \
     QDockWidget, QToolBar, QAction, QApplication
 from qtpy.QtCore import Qt, QSize
-from qtpy.QtGui import QKeySequence
+from qtpy.QtGui import QKeySequence, QIcon
 import qtawesome as qta
 from .widgets import QuickOpenFileDialog
 from .components.editor_panel import EditorPanel
@@ -16,12 +16,11 @@ from .components.sigmund import Sigmund
 from .components.settings_panel import SettingsPanel
 from . import settings, watchdog, __version__
 from pyqt_code_editor.signal_router import signal_router
-
 logging.basicConfig(level=logging.INFO, force=True)
 logger = logging.getLogger(__name__)
 
 
-class MainWindow(QMainWindow):
+class SigmundAnalyst(QMainWindow):
     def __init__(self, root_path=None):
         super().__init__()
         logger.info("MainWindow initialized")
@@ -29,6 +28,9 @@ class MainWindow(QMainWindow):
         if root_path:
             settings.project_folders = settings.current_folder = root_path
         self.setWindowTitle(f"Sigmund Analyst {__version__}")
+        self.setWindowIcon(
+            QIcon(os.path.join(os.path.dirname(__file__),
+                               'sigmund-analyst.png')))
         # The editor panel provides splittable editor tabs
         self._editor_panel = EditorPanel()
         self._editor_panel.open_folder_requested.connect(self._open_folder)
@@ -447,6 +449,6 @@ class MainWindow(QMainWindow):
 def launch_app():
     app = QApplication(sys.argv)
     settings.set_font_family()
-    window = MainWindow()
+    window = SigmundAnalyst()
     window.show()
     sys.exit(app.exec_())
