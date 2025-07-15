@@ -125,9 +125,11 @@ class Base:
             # 6) We're done with this particular request
             to_remove.append(pid)
 
-        # Cleanup: remove completed or dead requests
+        # Cleanup: remove completed or dead requests. Also stop unused workers.
+        # This function periodically prunes worker processes if they are unused.
         for pid in to_remove:
-            self._active_requests.pop(pid, None)
+            self._active_requests.pop(pid, None)            
+        manager.stop_unused_workers()
         
     def set_modified(self, modified):
         logger.info(f'modified: {modified}')

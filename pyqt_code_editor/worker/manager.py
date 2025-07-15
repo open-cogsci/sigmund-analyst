@@ -1,9 +1,11 @@
 import logging
+import time
 from multiprocessing import Process, Queue
 from .process import main_worker_process_function
 from .. import watchdog, settings
 logger = logging.getLogger(__name__)
-
+STOP_UNUSED_INTERVAL = 10
+_last_stop_unused_time = 0
 _workers = {}  # pid -> {"process", "request_queue", "result_queue", "is_free"}
 
 
@@ -63,11 +65,15 @@ def check_worker_alive(pid: int) -> bool:
     w = _workers.get(pid)
     return w and w["process"].is_alive()
 
-def stop_unused_workers(max_free: int = 1):
+def stop_unused_workers(max_free: int = 1, force: bool = False):
     """
     Stop free worker processes until there is at most 'max_free' free processes left.
     This keeps us from accumulating too many idle worker processes.
     """
+    global _last_stop_unused_time
+    if force or time.time() - _last_stop_unused_time < STOP_UNUSED_INTERVAL:
+        return
+    _last_stop_unused_time = time.time()
     # Gather a list of free worker PIDs
     free_pids = [pid for pid, w in _workers.items() if w["is_free"] and w["process"].is_alive()]
     logger.info(f"stop_unused_workers called: max_free={max_free}, found {len(free_pids)} free workers")

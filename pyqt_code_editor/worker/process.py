@@ -1,6 +1,7 @@
 import logging
 import importlib
 from . import settings
+import queue
 logger = logging.getLogger(__name__)
 worker_functions_cache = {}
 
@@ -17,7 +18,10 @@ def main_worker_process_function(request_queue, result_queue):
     """
     logger.info("Started completion worker.")
     while True:
-        request = request_queue.get()
+        try:
+            request = request_queue.get(True, 5)
+        except queue.Empty:
+            continue
         if request is None:
             logger.info("Received None request (possibly legacy or invalid). Skipping.")
             continue
