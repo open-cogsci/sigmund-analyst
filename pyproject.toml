@@ -17,13 +17,14 @@ dependencies = [
     "jedi",
     "mistralai",
     "pathspec",
+    "psutil",
     "pygments",
     "qtawesome",
     "qtpy",
     "ruff",
-	"opensesame-extension-sigmund",
-	"pyqt6",
-	"qtconsole"
+    "opensesame-extension-sigmund",
+    "pyqt6",
+    "qtconsole"
 ]
 keywords = ["code editor", "pyqt", "ide"]
 
@@ -31,7 +32,7 @@ keywords = ["code editor", "pyqt", "ide"]
 exclude = ["doc-pelican", "testcases", ".github"]
 
 [project.urls]
-Source = "https://github.com/open-cogsci/pyqt_code_editor"
+Source = "https://github.com/open-cogsci/sigmund-analyst"
 
 [project.scripts]
 sigmund-analyst = "pyqt_code_editor.app:launch_app"
