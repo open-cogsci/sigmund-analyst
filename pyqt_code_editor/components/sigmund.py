@@ -3,7 +3,6 @@ from ..widgets import Dock
 from .. import watchdog, settings
 import textwrap
 import logging
-logging.basicConfig(level=logging.INFO, force=True)
 logger = logging.getLogger(__name__)
 
 

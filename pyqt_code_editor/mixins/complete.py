@@ -1,6 +1,5 @@
 import os
 import sys
-import logging
 from qtpy.QtCore import QTimer, Qt
 from qtpy.QtGui import QTextCursor
 from qtpy.QtWidgets import QApplication
@@ -8,7 +7,7 @@ from ..widgets.completion_popup import CompletionPopup
 from ..widgets.calltip_widget import CalltipWidget
 from ..environment_manager import environment_manager
 from .. import settings
-logging.basicConfig(level=logging.INFO, force=True)
+import logging
 logger = logging.getLogger(__name__)
 
 

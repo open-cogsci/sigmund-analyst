@@ -1,7 +1,6 @@
 import importlib
-import logging
 from pygments.lexers import get_lexer_by_name
-logging.basicConfig(level=logging.INFO, force=True)
+import logging
 logger = logging.getLogger(__name__)
 module_cache = {}
 

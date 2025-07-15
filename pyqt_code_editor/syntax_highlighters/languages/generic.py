@@ -2,7 +2,6 @@ from pygments.styles import get_style_by_name
 from pygments.formatters.html import HtmlFormatter
 from qtpy.QtGui import QSyntaxHighlighter, QTextCharFormat, QBrush, QColor, QFont
 import logging
-logging.basicConfig(level=logging.INFO, force=True)
 logger = logging.getLogger(__name__)
 
 

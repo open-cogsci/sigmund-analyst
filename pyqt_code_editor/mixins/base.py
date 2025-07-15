@@ -2,7 +2,6 @@ from ..worker import manager
 from qtpy.QtCore import QTimer, Signal
 from qtpy.QtGui import QTextCursor
 import logging
-logging.basicConfig(level=logging.INFO, force=True)
 logger = logging.getLogger(__name__)
 
 active_editor = None

@@ -1,7 +1,6 @@
 import importlib
 from .. import utils, settings
 import logging
-logging.basicConfig(level=logging.INFO, force=True)
 logger = logging.getLogger(__name__)
 
 editor_module_cache = {}

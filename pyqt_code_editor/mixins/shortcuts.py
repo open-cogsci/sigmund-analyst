@@ -1,10 +1,9 @@
-import logging
 from qtpy.QtWidgets import QShortcut
 from qtpy.QtGui import QTextCursor, QKeySequence
 from qtpy.QtCore import Qt, QEvent
 from .. import settings
+import logging
 logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO, force=True)
 
 
 class Shortcuts:

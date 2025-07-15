@@ -3,7 +3,6 @@ from qtpy.QtGui import QShortcut
 from qtpy.QtCore import Qt, Signal
 from .. import settings
 from ..widgets import QuickSymbolDialog
-logging.basicConfig(level=logging.INFO, force=True)
 logger = logging.getLogger(__name__)
 
     

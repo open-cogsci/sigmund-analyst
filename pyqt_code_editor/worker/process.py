@@ -1,7 +1,6 @@
 import logging
 import importlib
 from . import settings
-logging.basicConfig(level=logging.INFO, force=True)
 logger = logging.getLogger(__name__)
 worker_functions_cache = {}
 

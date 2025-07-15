@@ -20,7 +20,6 @@ import sys
 import time
 import logging
 import psutil
-logging.basicConfig(level=logging.INFO, force=True)
 logger = logging.getLogger(__name__)
 
 

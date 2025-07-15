@@ -1,12 +1,11 @@
 from pygments.token import Token
 from .. import settings
 from ..syntax_highlighters.syntax_highlighter import create_syntax_highlighter
-import logging
 from qtpy.QtGui import QPainter, QColor, QFont, QFontMetrics
 from qtpy.QtWidgets import QPlainTextEdit
-
-logging.basicConfig(level=logging.INFO, force=True)
+import logging
 logger = logging.getLogger(__name__)
+
 
 class Theme:
     """

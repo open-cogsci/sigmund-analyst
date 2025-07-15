@@ -2,7 +2,6 @@ import os
 import json
 from qtpy.QtCore import QObject, Signal, QSettings
 import logging
-logging.basicConfig(level=logging.INFO, force=True)
 logger = logging.getLogger(__name__)
 
 

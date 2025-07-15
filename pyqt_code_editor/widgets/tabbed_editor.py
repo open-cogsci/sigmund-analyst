@@ -7,7 +7,6 @@ from qtpy.QtCore import Signal, Qt, QMimeData, QPoint, QByteArray, QDataStream
 from ..code_editors import create_editor
 from .. import settings, utils
 from ..signal_router import signal_router
-logging.basicConfig(level=logging.INFO, force=True)
 logger = logging.getLogger(__name__)
 
 

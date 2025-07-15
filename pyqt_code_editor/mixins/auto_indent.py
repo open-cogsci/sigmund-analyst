@@ -1,7 +1,7 @@
 from qtpy.QtCore import Qt
 from .. import settings
 import logging
-logging.basicConfig(level=logging.INFO, force=True)
+logger = logging.getLogger(__name__)
 
 
 class AutoIndent:
@@ -50,15 +50,15 @@ class AutoIndent:
     def keyPressEvent(self, event):
         key = event.key()
         modifiers = event.modifiers()
-        logging.info("keyPressEvent: key=%s, modifiers=%s", key, modifiers)
+        logger.info("keyPressEvent: key=%s, modifiers=%s", key, modifiers)
 
         # Check for Tab/Shift+Tab indentation
         if key == Qt.Key_Tab and modifiers == Qt.NoModifier:
-            logging.info("Tab pressed -> indent code")
+            logger.info("Tab pressed -> indent code")
             self.indent_code()
             return
         elif (key == Qt.Key_Tab and modifiers == Qt.ShiftModifier) or key == Qt.Key_Backtab:
-            logging.info("Shift+Tab pressed -> dedent code")
+            logger.info("Shift+Tab pressed -> dedent code")
             self.dedent_code()
             return
 
@@ -74,7 +74,7 @@ class AutoIndent:
 
         # Check for Enter/Return (preserve indentation)
         if key in (Qt.Key_Enter, Qt.Key_Return):
-            logging.info("Enter/Return pressed -> preserve indentation on new line")
+            logger.info("Enter/Return pressed -> preserve indentation on new line")
             cursor = self.textCursor()
 
             # Get leading whitespace of the current line
@@ -116,15 +116,15 @@ class AutoIndent:
         Indent either the selected lines (if multi-line selection)
         or just the current cursor position (if single-line).
         """
-        logging.info("indent_code triggered")
+        logger.info("indent_code triggered")
         cursor = self.textCursor()
         cursor.beginEditBlock()
 
         if self._is_multiline_selection():
-            logging.info("Multi-line selection -> indent each line")
+            logger.info("Multi-line selection -> indent each line")
             self._indent_selection()
         else:
-            logging.info("Single line -> insert indent at cursor")
+            logger.info("Single line -> insert indent at cursor")
             indent_str = self._get_indent_string()
             cursor.insertText(indent_str)
 
@@ -135,22 +135,22 @@ class AutoIndent:
         Dedent either the selected lines (if multi-line selection)
         or just the current line (if single-line).
         """
-        logging.info("dedent_code triggered")
+        logger.info("dedent_code triggered")
         cursor = self.textCursor()
         cursor.beginEditBlock()
 
         if self._is_multiline_selection():
-            logging.info("Multi-line selection -> dedent each line")
+            logger.info("Multi-line selection -> dedent each line")
             self._dedent_selection()
         else:
-            logging.info("Single line -> remove up to one indent chunk from start")
+            logger.info("Single line -> remove up to one indent chunk from start")
             line_start = cursor.block().position()
             line_text = cursor.block().text()
             leading_ws = len(line_text) - len(line_text.lstrip(' \t'))
 
             chunk_size = self._compute_chunk_size()
             remove_chars = min(chunk_size, leading_ws)
-            logging.info("Removing up to %d chars from leading whitespace", remove_chars)
+            logger.info("Removing up to %d chars from leading whitespace", remove_chars)
 
             cursor.setPosition(line_start)
             for _ in range(remove_chars):
@@ -162,7 +162,7 @@ class AutoIndent:
         """
         Increase indent for each selected line by one chunk.
         """
-        logging.info("indent_selection (multi-line)")
+        logger.info("indent_selection (multi-line)")
         indent_str = self._get_indent_string()
 
         cursor = self.textCursor()
@@ -183,7 +183,7 @@ class AutoIndent:
         Decrease indent for each selected line by one chunk,
         ensuring we don't go below zero indentation.
         """
-        logging.info("dedent_selection (multi-line)")
+        logger.info("dedent_selection (multi-line)")
         cursor = self.textCursor()
         start = cursor.selectionStart()
         end = cursor.selectionEnd()
@@ -220,7 +220,7 @@ class AutoIndent:
             if 0 < pos_in_block <= leading_ws:
                 chunk_size = self._compute_chunk_size()
                 remove_count = min(chunk_size, pos_in_block)
-                logging.info("Backspace in leading whitespace -> removing %d chars", remove_count)
+                logger.info("Backspace in leading whitespace -> removing %d chars", remove_count)
 
                 for _ in range(remove_count):
                     cursor.deletePreviousChar()
@@ -241,7 +241,7 @@ class AutoIndent:
             if pos_in_block < leading_ws:
                 chunk_size = self._compute_chunk_size()
                 remove_count = min(chunk_size, leading_ws - pos_in_block)
-                logging.info("Delete in leading whitespace -> removing %d chars", remove_count)
+                logger.info("Delete in leading whitespace -> removing %d chars", remove_count)
 
                 for _ in range(remove_count):
                     cursor.deleteChar()

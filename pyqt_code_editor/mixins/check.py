@@ -1,7 +1,7 @@
-import logging; logging.basicConfig(level=logging.INFO, force=True)
 from qtpy.QtWidgets import QWidget, QPlainTextEdit
 from qtpy.QtCore import Qt, QRect, QPoint, QSize, QTimer
 from qtpy.QtGui import QPainter, QColor, QBrush
+import logging
 logger = logging.getLogger(__name__)
 
 

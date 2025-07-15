@@ -1,7 +1,6 @@
 from qtpy.QtCore import Qt
 from qtpy.QtGui import QKeyEvent, QTextCursor
 import logging
-logging.basicConfig(level=logging.INFO, force=True)
 logger = logging.getLogger(__name__)
 
 

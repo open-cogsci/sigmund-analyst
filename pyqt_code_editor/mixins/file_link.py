@@ -1,11 +1,10 @@
 import os
-import logging
 import chardet
 from pathlib import Path
 from qtpy.QtCore import QFileSystemWatcher, Signal
 from qtpy.QtWidgets import QMessageBox, QFileDialog
 from .. import settings
-logging.basicConfig(level=logging.INFO, force=True)
+import logging
 logger = logging.getLogger(__name__)
 
 

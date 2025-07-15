@@ -1,7 +1,6 @@
 from .... import settings
 from ._mask_str_in_code import mask_str_in_code
 import logging
-logging.basicConfig(level=logging.INFO, force=True)
 logger = logging.getLogger(__name__)
 
 BLOCK_KEYWORDS = (

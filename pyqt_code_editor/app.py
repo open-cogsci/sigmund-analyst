@@ -16,7 +16,10 @@ from .components.sigmund import Sigmund
 from .components.settings_panel import SettingsPanel
 from . import settings, watchdog, __version__
 from pyqt_code_editor.signal_router import signal_router
-logging.basicConfig(level=logging.INFO, force=True)
+if '--debug' in sys.argv:
+    logging.basicConfig(level=logging.INFO, force=True)
+else:
+    logging.basicConfig(level=logging.WARNING, force=True)
 logger = logging.getLogger(__name__)
 
 

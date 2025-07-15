@@ -3,7 +3,7 @@ from qtpy.QtGui import QTextCursor
 from .. import settings
 from ..utils.languages import python as python_utils
 import logging
-logging.basicConfig(level=logging.INFO, force=True)
+logger = logging.getLogger(__name__)
 
 
 class PythonAutoIndent:
@@ -25,15 +25,15 @@ class PythonAutoIndent:
     def keyPressEvent(self, event):
         key = event.key()
         modifiers = event.modifiers()
-        logging.info("keyPressEvent: key=%s, modifiers=%s", key, modifiers)
+        logger.info("keyPressEvent: key=%s, modifiers=%s", key, modifiers)
 
         # Check for Tab/Shift+Tab indentation
         if key == Qt.Key_Tab and modifiers == Qt.NoModifier:
-            logging.info("Tab pressed, indent code")
+            logger.info("Tab pressed, indent code")
             self.indent_code()
             return
         elif (key == Qt.Key_Tab and modifiers == Qt.ShiftModifier) or key == Qt.Key_Backtab:
-            logging.info("Shift+Tab pressed, dedent code")
+            logger.info("Shift+Tab pressed, dedent code")
             self.dedent_code()
             return
 
@@ -49,7 +49,7 @@ class PythonAutoIndent:
 
         # Check for Enter/Return
         if key in (Qt.Key_Enter, Qt.Key_Return):
-            logging.info("Enter/Return pressed")
+            logger.info("Enter/Return pressed")
             cursor = self.textCursor()
             cursor.beginEditBlock()
     
@@ -64,7 +64,7 @@ class PythonAutoIndent:
             # Insert the computed indentation
             super().keyPressEvent(event)
             if new_indent > 0:
-                logging.info("Inserting %d spaces of indentation", new_indent)
+                logger.info("Inserting %d spaces of indentation", new_indent)
                 self._insert_indentation(new_indent)
             cursor.endEditBlock()
             self.setTextCursor(cursor)
@@ -92,7 +92,7 @@ class PythonAutoIndent:
                     remainder = settings.tab_width
 
                 remove_count = min(remainder, pos_in_block)
-                logging.info("Backspace in leading indentation, removing %d spaces", remove_count)
+                logger.info("Backspace in leading indentation, removing %d spaces", remove_count)
 
                 # Delete the chunk of spaces
                 for _ in range(remove_count):
@@ -117,7 +117,7 @@ class PythonAutoIndent:
                 # Figure out how many spaces remain in this "tab chunk"
                 chunk_end = ((pos_in_block // settings.tab_width) + 1) * settings.tab_width
                 remove_count = min(chunk_end - pos_in_block, leading_spaces - pos_in_block)
-                logging.info("Delete in leading indentation, removing %d spaces", remove_count)
+                logger.info("Delete in leading indentation, removing %d spaces", remove_count)
 
                 for _ in range(remove_count):
                     cursor.deleteChar()
@@ -142,15 +142,15 @@ class PythonAutoIndent:
         or just the current cursor position (if single-line or no selection).
         All changes happen in a single undo block.
         """
-        logging.info("Indent code triggered")
+        logger.info("Indent code triggered")
         cursor = self.textCursor()
         cursor.beginEditBlock()
 
         if self._is_multiline_selection():
-            logging.info("Multi-line selection detected -> Indenting each line")
+            logger.info("Multi-line selection detected -> Indenting each line")
             self._indent_selection()
         else:
-            logging.info("Single-line (or no) selection -> Inserting indent at cursor")
+            logger.info("Single-line (or no) selection -> Inserting indent at cursor")
             # Insert spacing at the current cursor position
             cursor.insertText(' ' * settings.tab_width)
 
@@ -162,15 +162,15 @@ class PythonAutoIndent:
         or just the current line (if single-line or no selection).
         All changes happen in a single undo block.
         """
-        logging.info("Dedent code triggered")
+        logger.info("Dedent code triggered")
         cursor = self.textCursor()
         cursor.beginEditBlock()
 
         if self._is_multiline_selection():
-            logging.info("Multi-line selection detected -> Dedenting each line")
+            logger.info("Multi-line selection detected -> Dedenting each line")
             self._dedent_selection()
         else:
-            logging.info("Single-line (or no) selection -> Removing indent from current line if possible")
+            logger.info("Single-line (or no) selection -> Removing indent from current line if possible")
             line_start = cursor.block().position()
             leading_spaces = 0
             doc_text = cursor.block().text()
@@ -192,7 +192,7 @@ class PythonAutoIndent:
         Increase indent for each selected line by settings.tab_width spaces.
         If no selection or selection on one line, that is handled outside.
         """
-        logging.info("Indent selection (multi-line)")
+        logger.info("Indent selection (multi-line)")
         cursor = self.textCursor()
         start = cursor.selectionStart()
         end = cursor.selectionEnd()
@@ -213,7 +213,7 @@ class PythonAutoIndent:
         ensuring no reduction below zero.
         If no selection or selection on one line, that is handled outside.
         """
-        logging.info("Dedent selection (multi-line)")
+        logger.info("Dedent selection (multi-line)")
         cursor = self.textCursor()
         start = cursor.selectionStart()
         end = cursor.selectionEnd()
@@ -238,10 +238,10 @@ class PythonAutoIndent:
         Deletes one character if it is a space, used in dedent logic.
         """
         if cursor.document().characterAt(cursor.position()) == ' ':
-            logging.info("Deleting forward space during dedent")
+            logger.info("Deleting forward space during dedent")
             cursor.deleteChar()
 
     def _insert_indentation(self, indent_count):
         """Insert the specified number of spaces at the cursor."""
-        logging.info("Inserting indentation: %d spaces", indent_count)
+        logger.info("Inserting indentation: %d spaces", indent_count)
         self.textCursor().insertText(' ' * indent_count)

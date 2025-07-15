@@ -1,6 +1,6 @@
 from qtpy.QtCore import Qt
 import logging
-logging.basicConfig(level=logging.INFO, force=True)
+logger = logging.getLogger(__name__)
 
 
 class AutoPair:
@@ -158,7 +158,7 @@ class AutoPair:
         c.endEditBlock()
         self.setTextCursor(c)
         
-        logging.info(
+        logger.info(
             "Auto-paired '%s' with '%s', inserted in-between '%s'. "
             "Cursor restored to position %d",
             open_seq, close_seq, inbetween_seq, old_pos

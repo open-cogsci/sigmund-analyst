@@ -5,7 +5,6 @@ from qtpy.QtCore import Qt, Signal
 from ..widgets import TabbedEditor, TabSplitter
 from .. import settings, utils
 import logging
-logging.basicConfig(level=logging.INFO, force=True)
 logger = logging.getLogger(__name__)
 
 

@@ -1,7 +1,6 @@
 from pygments.token import Token
 import logging
 from .generic import SyntaxHighlighter as GenericSyntaxHighlighter
-logging.basicConfig(level=logging.INFO, force=True)
 logger = logging.getLogger(__name__)
 
 
