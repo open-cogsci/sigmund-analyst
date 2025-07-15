@@ -21,6 +21,10 @@ class CompletionPopup(QListWidget):
                 background-color: {editor.code_editor_colors['background']};
                 font: {settings.font_size}pt '{settings.font_family}';
                 border: 1px solid {editor.code_editor_colors['border']};
+                outline: none;
+            }}
+            QListWidget::item:selected {{
+                background-color: {editor.code_editor_colors['highlight']};
             }}''')
         # Use a frameless tool window so it can float above the editor
         # without stealing focus. Note we do NOT use Qt.Popup here.

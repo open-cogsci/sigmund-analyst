@@ -58,8 +58,11 @@ QLineEdit, QListView {{
     border: none;
     font-family: {font_family};
     font-size: {font_size}px;
-    background-color: {selection_background};
+    background-color: {background};
     padding: 4px;
+}}
+QListView::item:selected {{
+    background-color: {selection_background};
 }}
 '''
 
