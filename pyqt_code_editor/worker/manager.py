@@ -18,7 +18,7 @@ def send_worker_request(**data) -> (Queue, int):
     # 1. Look for an existing free worker
     for pid, w in list(_workers.items()):
         if w["is_free"] and w["process"].is_alive():
-            logger.info(f"Reusing free worker {pid} for request {list(data.keys())}")
+            logger.info(f"Reusing free worker {pid} (of {len(_workers)}) for request {list(data.keys())}")
             w["is_free"] = False
             w["request_queue"].put(data)
             return w["result_queue"], pid
