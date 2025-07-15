@@ -46,6 +46,7 @@ class MultiNeedleFilterProxyModel(QSortFilterProxyModel):
 STYLESHEET = '''
 QuickOpenDialog {{
     background-color: {background};
+    border: 1px solid {selection_background};
     color: {foreground};
     padding: 8px;
     border-radius: 4px;
