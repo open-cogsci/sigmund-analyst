@@ -42,7 +42,7 @@ class SigmundAnalyst(QMainWindow):
         # Track if project explorers are hidden as a group
         self._project_explorers_hidden = False
         # Open initial project explorer
-        for project_folder in str(settings.project_folders).split(':'):
+        for project_folder in str(settings.project_folders).split('::'):
             if project_folder:
                 self._open_project_explorer(project_folder)
         # Set up the workspace explorer

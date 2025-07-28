@@ -264,8 +264,8 @@ class ProjectExplorer(QDockWidget):
         settings.current_folder = selected_dir
         # Add selected folder to project folders but make sure we don't 
         # duplicate
-        settings.project_folders = ':'.join(
-            set(str(settings.project_folders).split(':')) | {selected_dir})
+        settings.project_folders = '::'.join(
+            set(str(settings.project_folders).split('::')) | {selected_dir})
         explorer = cls(editor_panel, root_path=selected_dir, parent=parent)
         return explorer
         
@@ -521,7 +521,7 @@ class ProjectExplorer(QDockWidget):
     def closeEvent(self, event):        
         # Add selected folder to project folders but make sure we don't 
         # duplicate
-        settings.project_folders = ':'.join(
-            set(str(settings.project_folders).split(':')) - {self._display_root})
+        settings.project_folders = '::'.join(
+            set(str(settings.project_folders).split('::')) - {self._display_root})
         super().closeEvent(event)
         self.closed.emit(self)
