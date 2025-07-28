@@ -4,6 +4,7 @@ import jedi
 from .. import settings
 
 logger = logging.getLogger(__name__)
+env_cache = {}
 
 
 def _signature_to_html(signature) -> str:
@@ -42,7 +43,11 @@ def _prepare_jedi_script(code: str, cursor_position: int, path: str | None,
              path, line_no, column_no)
     # We explicitly indicate that the environment is safe, because we know that
     # they come from the app itself
-    env = jedi.create_environment(env_path, safe=False) if env_path else None
+    if env_path not in env_cache:        
+        env = jedi.create_environment(env_path, safe=False) if env_path else None
+        env_cache[env_path] = env
+    else:
+        env = env_cache[env_path]
     script = jedi.Script(code, path=path, environment=env)
     return script, line_no, column_no
 
