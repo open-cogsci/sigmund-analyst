@@ -21,11 +21,16 @@ def _signature_to_html(signature) -> str:
 
 
 def _prepare_jedi_script(code: str, cursor_position: int, path: str | None,
-                         env_path: str | None):
+                         env_path: str | None, prefix: str | None = None):
     """
     Prepare a Jedi Script object and calculate line_no/column_no from the
     given code and cursor_position. Returns (script, line_no, column_no).
     """
+    if prefix:
+        if not prefix.endswith('\n'):
+            prefix += '\n'
+        code = prefix + code
+        cursor_position += len(prefix)
     # Convert the flat cursor_position into line & column (1-based indexing for Jedi)
     line_no = code[:cursor_position].count('\n') + 1
     last_newline_idx = code.rfind('\n', 0, cursor_position)
@@ -43,7 +48,8 @@ def _prepare_jedi_script(code: str, cursor_position: int, path: str | None,
 
 
 def jedi_complete(code: str, cursor_position: int, path: str | None,
-                  env_path: str | None = None) -> list[str]:
+                  env_path: str | None = None,
+                  prefix: str | None = None) -> list[str]:
     """
     Perform Python-specific completion using Jedi. Returns a list of possible completions
     for the text at the given cursor position, or None if no completion is found.
@@ -61,7 +67,7 @@ def jedi_complete(code: str, cursor_position: int, path: str | None,
         return []
     # Go Jedi!
     script, line_no, column_no = _prepare_jedi_script(code, cursor_position,
-                                                      path, env_path)
+                                                      path, env_path, prefix)
     completions = script.complete(line=line_no, column=column_no)
     if not completions:
         return []
@@ -75,7 +81,8 @@ def jedi_complete(code: str, cursor_position: int, path: str | None,
 def jedi_signatures(code: str, cursor_position: int, path: str | None,
                     multiline: bool = False, max_width: int = 40,
                     max_lines: int = 10,
-                    env_path: str | None = None):
+                    env_path: str | None = None,
+                    prefix: str | None = None) -> list[str]:
     """
     Retrieve function signatures (calltips) from Jedi given the current cursor position.
     Returns a list of strings describing each signature, or None if none.
@@ -90,7 +97,7 @@ def jedi_signatures(code: str, cursor_position: int, path: str | None,
 
     logger.info("Starting Jedi calltip request (multiline=%r).", multiline)
     script, line_no, column_no = _prepare_jedi_script(code, cursor_position,
-                                                      path, env_path)
+                                                      path, env_path, prefix)
 
     signatures = script.get_signatures(line=line_no, column=column_no)
     if not signatures:

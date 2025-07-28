@@ -6,7 +6,8 @@ client = None
 
 
 def codestral_complete(code: str, cursor_pos: int,
-                       multiline: bool = False) -> list[str]:
+                       multiline: bool = False,
+                       prefix: str | None = None) -> list[str]:
     global client
 
     if not settings.codestral_api_key:
@@ -22,6 +23,10 @@ def codestral_complete(code: str, cursor_pos: int,
     start = max(0, cursor_pos - settings.codestral_max_context)
     end = cursor_pos + settings.codestral_max_context
     prompt = code[start: cursor_pos]
+    if prefix:
+        if not prefix.endswith('\n'):
+            prefix += '\n'
+        prompt = prefix + prompt
     suffix = code[cursor_pos: end]
 
     request = dict(

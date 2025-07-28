@@ -1,9 +1,9 @@
 from ..providers import symbol, codestral
 
-def complete(code, cursor_pos, path, multiline, full, env_path):
+def complete(code, cursor_pos, path, multiline, full, env_path, prefix):
     if full or multiline:
         completions = codestral.codestral_complete(
-            code, cursor_pos, multiline=multiline)
+            code, cursor_pos, multiline=multiline, prefix=prefix)
     else:
         completions = []
     if not multiline:

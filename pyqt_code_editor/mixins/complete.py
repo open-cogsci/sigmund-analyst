@@ -276,7 +276,8 @@ class Complete:
                                  multiline=multiline,
                                  path=self.code_editor_file_path,
                                  language=self.code_editor_language,
-                                 env_path=environment_manager.path)
+                                 env_path=environment_manager.path,
+                                 prefix=environment_manager.prefix)
 
     def _cm_request_calltip(self):
         """Send a calltip request."""
@@ -288,7 +289,8 @@ class Complete:
                                  cursor_pos=cursor_pos,
                                  path=self.code_editor_file_path,
                                  language=self.code_editor_language,
-                                 env_path=environment_manager.path)
+                                 env_path=environment_manager.path,
+                                 prefix=environment_manager.prefix)
 
     def _cm_hide_calltip(self):
         """Hide the calltip widget."""

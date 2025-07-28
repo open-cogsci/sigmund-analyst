@@ -1,7 +1,7 @@
-from qtpy.QtWidgets import QWidget, QPlainTextEdit
-from qtpy.QtCore import Qt, QRect, QPoint, QSize, QTimer
-from qtpy.QtGui import QPainter, QColor, QBrush
 import logging
+from qtpy.QtCore import QTimer
+from qtpy.QtGui import QColor
+from ..environment_manager import environment_manager
 logger = logging.getLogger(__name__)
 
 
@@ -50,8 +50,8 @@ class Check:
         self.send_worker_request(
             action='check',
             code=code,
-            language=getattr(self, "code_editor_language", "python")
-        )
+            language=getattr(self, "code_editor_language", "python"),
+            prefix=environment_manager.prefix)
 
     def handle_worker_result(self, action: str, result):
         """

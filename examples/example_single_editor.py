@@ -1,9 +1,10 @@
 import sys
 import os
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from pyqt_code_editor import watchdog
 from qtpy.QtWidgets import QApplication, QVBoxLayout, QWidget
 from pyqt_code_editor.code_editors import create_editor
+from pyqt_code_editor.environment_manager import environment_manager
 
 
 class MainWindow(QWidget):
@@ -11,6 +12,7 @@ class MainWindow(QWidget):
         super().__init__()
         self.setWindowTitle("PyQtCodeEditor")
         layout = QVBoxLayout()
+        environment_manager.prefix = 'import math'
         self.editor = create_editor(path, parent=self)
         layout.addWidget(self.editor)
         self.setLayout(layout)
