@@ -229,7 +229,7 @@ class ProjectExplorer(QDockWidget):
                 continue
             # Now gather files that are not ignored
             for f in filenames:
-                abs_file = os.path.join(dirpath, f)
+                abs_file = os.path.normpath(os.path.join(dirpath, f))
                 # Avoid filtering _display_root, though it shouldn't typically be a file
                 if abs_file == self._display_root:
                     continue
