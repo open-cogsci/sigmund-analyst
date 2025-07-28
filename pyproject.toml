@@ -15,6 +15,7 @@ dependencies = [
     "chardet",
     "detect-indent",
     "jedi",
+    "httpx<0.29.0",
     "mistralai",
     "pathspec",
     "psutil",
