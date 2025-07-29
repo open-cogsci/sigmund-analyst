@@ -98,7 +98,8 @@ class EditorPanel(QWidget):
         self._active_tab_widget = self._active_editor.parent().parent()
     
     def open_file(self, path=None, line_number=None):
-        path = os.path.normpath(path)
+        if path is not None:
+            path = os.path.normpath(path)
         if path is not None:
             # Don't allow the same file to be opened multiple times
             for editor in self.central_splitter.editors():
