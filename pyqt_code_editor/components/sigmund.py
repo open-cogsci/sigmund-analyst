@@ -59,12 +59,20 @@ class EditorWorkspace:
     def get(self):
         text_cursor = self._editor.textCursor()
         if text_cursor.hasSelection():
+            # Move to the start of the first selected block
+            start = text_cursor.selectionStart()
+            end = text_cursor.selectionEnd()
+            text_cursor.setPosition(start)
+            text_cursor.movePosition(text_cursor.StartOfBlock)
+            text_cursor.setPosition(end, text_cursor.KeepAnchor)
+            text_cursor.movePosition(text_cursor.EndOfBlock, text_cursor.KeepAnchor)
+            self._editor.setTextCursor(text_cursor)
             content = self._normalize_line_breaks(text_cursor.selectedText())
         else:
             content = self._editor.toPlainText()
         self._indentation = self._get_indentation(content)
-        logger.info(f'content was indented by "{self._indentation}"')        
-        return content, self._editor.code_editor_language
+        logger.info(f'content was indented by "{self._indentation}"')
+        return textwrap.dedent(content), self._editor.code_editor_language
     
     def set(self, content, language):
         text_cursor = self._editor.textCursor()
