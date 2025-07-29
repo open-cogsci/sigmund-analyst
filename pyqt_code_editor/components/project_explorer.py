@@ -11,12 +11,13 @@ from qtpy.QtWidgets import (
     QInputDialog,
     QWidget,
     QVBoxLayout,
-    QCheckBox
+    QCheckBox,
+    QShortcut
 )
 from qtpy.QtCore import Qt, QDir, QModelIndex, QSortFilterProxyModel, QUrl, \
     Signal
 from qtpy.QtWidgets import QFileSystemModel
-from qtpy.QtGui import QDesktopServices
+from qtpy.QtGui import QDesktopServices, QKeySequence
 from pathspec import PathSpec
 from pathspec.patterns.gitwildmatch import GitWildMatchPattern
 from .. import settings, themes
@@ -24,8 +25,7 @@ from .. import settings, themes
 logger = logging.getLogger(__name__)
 
 class LazyQFileSystemModel(QFileSystemModel):
-    """
-    A QFileSystemModel that only fetches children for 'expanded' paths.
+    """A QFileSystemModel that only fetches children for 'expanded' paths.
     This prevents eagerly creating inotify watchers for large, collapsed directories.
     """
     def __init__(self, parent=None):
@@ -71,8 +71,7 @@ class LazyQFileSystemModel(QFileSystemModel):
             return super().fetchMore(index)
 
 class GitignoreFilterProxyModel(QSortFilterProxyModel):
-    """
-    A QSortFilterProxyModel that hides paths ignored by .gitignore (when enabled).
+    """A QSortFilterProxyModel that hides paths ignored by .gitignore (when enabled).
     Parses .gitignore with pathspec. Also forwards hasChildren/fetchMore to the source
     model so that folders may be expanded.
     """
@@ -83,8 +82,7 @@ class GitignoreFilterProxyModel(QSortFilterProxyModel):
         self.pathspec = None
 
     def set_root_folder(self, folder):
-        """
-        Load .gitignore (if present) from 'folder' and parse it into a PathSpec.
+        """Load .gitignore (if present) from 'folder' and parse it into a PathSpec.
         Keep the folder path for computing relative paths.
         """
         self.root_folder = folder
@@ -115,14 +113,14 @@ class GitignoreFilterProxyModel(QSortFilterProxyModel):
         abs_path = source_model.filePath(index)
         # Make sure our designated root folder is never hidden
         if abs_path == self.root_folder:
-            return True        
+            return True
         if not self.root_folder:
             return True
-        # Always keep directories. We need to be able to look inside them 
+        # Always keep directories. We need to be able to look inside them
         # because their children might be re-included by negated patterns in
         # .gitignore.
         if source_model.isDir(index):
-            return True            
+            return True
         # Ignore explicitly ignored folders
         path_parts = Path(abs_path).parts
         if any(ignored in path_parts for ignored in settings.ignored_folders):
@@ -130,7 +128,7 @@ class GitignoreFilterProxyModel(QSortFilterProxyModel):
         # Compute relative path from the repository root
         rel_path = os.path.relpath(abs_path, self.root_folder)
         # If matched by pathspec => it is ignored => filter out
-        return not self.pathspec.match_file(rel_path)            
+        return not self.pathspec.match_file(rel_path)
 
     # ----------------------
     # Overridden methods to ensure directories can still expand
@@ -152,7 +150,7 @@ class GitignoreFilterProxyModel(QSortFilterProxyModel):
         self.sourceModel().fetchMore(source_index)
 
 class ProjectExplorer(QDockWidget):
-    
+
     closed = Signal(object)
 
     def __init__(self, editor_panel, root_path=None, parent=None):
@@ -188,7 +186,7 @@ class ProjectExplorer(QDockWidget):
 
         # Optional: Hide columns other than the file name
         self._set_single_column_view(True)
-        
+
         # Only if .gitignore exists in the root, create the checkbox
         gitignore_path = os.path.join(self._display_root, '.gitignore')
         if os.path.isfile(gitignore_path):
@@ -207,23 +205,92 @@ class ProjectExplorer(QDockWidget):
         self._tree_view.customContextMenuRequested.connect(self._show_context_menu)
         self._tree_view.doubleClicked.connect(self._on_double_click)
 
-        # Set our container widget as the dock widget’s main widget
+        # Set our container widget as the dock widget's main widget
         self.setWidget(container_widget)
-        
+
+        # Set up global keyboard shortcuts
+        self._setup_shortcuts()
+
+    def _setup_shortcuts(self):
+        """Set up global keyboard shortcuts for common actions."""
+        QShortcut(QKeySequence("F2"), self, activated=lambda: self._handle_rename_shortcut())
+        QShortcut(QKeySequence.Delete, self, activated=lambda: self._handle_delete_shortcut())
+        QShortcut(QKeySequence.Cut, self, activated=lambda: self._handle_cut_shortcut())
+        QShortcut(QKeySequence.Copy, self, activated=lambda: self._handle_copy_shortcut())
+        QShortcut(QKeySequence.Paste, self, activated=lambda: self._handle_paste_shortcut())
+
+    def _handle_rename_shortcut(self):
+        """Handle F2 shortcut for rename."""
+        proxy_index = self._tree_view.selectionModel().currentIndex()
+        if proxy_index.isValid():
+            source_index = self._filter_proxy.mapToSource(proxy_index)
+            if source_index.isValid():
+                path = self._model.filePath(source_index)
+                self._rename_file_or_folder(path)
+
+    def _handle_delete_shortcut(self):
+        """Handle Delete shortcut for delete."""
+        proxy_index = self._tree_view.selectionModel().currentIndex()
+        if proxy_index.isValid():
+            source_index = self._filter_proxy.mapToSource(proxy_index)
+            if source_index.isValid():
+                path = self._model.filePath(source_index)
+                self._delete_file_or_folder(path)
+
+    def _handle_cut_shortcut(self):
+        """Handle Ctrl+X shortcut for cut."""
+        proxy_index = self._tree_view.selectionModel().currentIndex()
+        if proxy_index.isValid():
+            source_index = self._filter_proxy.mapToSource(proxy_index)
+            if source_index.isValid():
+                path = self._model.filePath(source_index)
+                self._clipboard_operation = 'cut'
+                self._clipboard_source_path = path
+
+    def _handle_copy_shortcut(self):
+        """Handle Ctrl+C shortcut for copy."""
+        proxy_index = self._tree_view.selectionModel().currentIndex()
+        if proxy_index.isValid():
+            source_index = self._filter_proxy.mapToSource(proxy_index)
+            if source_index.isValid():
+                path = self._model.filePath(source_index)
+                self._clipboard_operation = 'copy'
+                self._clipboard_source_path = path
+
+    def _handle_paste_shortcut(self):
+        """Handle Ctrl+V shortcut for paste."""
+        if not self._clipboard_source_path:
+            return
+
+        if not self._tree_view.selectionModel().hasSelection():
+            # Paste into root if nothing is selected
+            root_path = self._model.rootPath()
+            if os.path.isdir(root_path):
+                self._paste_file_or_folder(root_path)
+        else:
+            proxy_index = self._tree_view.selectionModel().currentIndex()
+            source_index = self._filter_proxy.mapToSource(proxy_index)
+            if source_index.isValid():
+                path = self._model.filePath(source_index)
+                if os.path.isdir(path):
+                    self._paste_file_or_folder(path)
+                else:
+                    # If a file is selected, use its directory
+                    self._paste_file_or_folder(os.path.dirname(path))
+
     def list_files(self) -> list[str]:
-        """
-        Returns a list of all non-ignored files under the display root, 
+        """Returns a list of all non-ignored files under the display root,
         applying the same .gitignore-based logic.
         If there are more than max_files files, returns empty list.
         """
         if not self._display_root:
             return []
-    
+
         results = []
         gitignore_enabled = self._filter_proxy.gitignore_enabled
         pathspec = self._filter_proxy.pathspec
         # Recursively walk the filesystem from _display_root
-        for dirpath, dirnames, filenames in os.walk(self._display_root):          
+        for dirpath, dirnames, filenames in os.walk(self._display_root):
             path_parts = Path(dirpath).parts
             if any(ignored in path_parts for ignored in settings.ignored_folders):
                 continue
@@ -233,7 +300,7 @@ class ProjectExplorer(QDockWidget):
                 # Avoid filtering _display_root, though it shouldn't typically be a file
                 if abs_file == self._display_root:
                     continue
-    
+
                 if gitignore_enabled and pathspec:
                     rel_file = os.path.relpath(abs_file, self._display_root)
                     # If pathspec matches => "ignored"
@@ -243,32 +310,31 @@ class ProjectExplorer(QDockWidget):
                 if len(results) > settings.max_files:
                     logger.warning("Too many files in project")
                     return []
-    
-        return results                
-        
+
+        return results
+
     @classmethod
     def open_folder(cls, editor_panel, parent=None) -> object | None:
-        """
-        Shows a folder picker dialog to open a folder.
+        """Shows a folder picker dialog to open a folder.
         If a folder is selected, a ProjectExplorer instance is created and returned.
         Otherwise None is returned.
         """
         options = QFileDialog.Options(QFileDialog.ShowDirsOnly)
         if os.environ.get("DONT_USE_NATIVE_FILE_DIALOG", False):
             options |= QFileDialog.Option.DontUseNativeDialog
-            logger.info('not using native file dialog')        
+            logger.info('not using native file dialog')
         selected_dir = QFileDialog.getExistingDirectory(parent,
             "Open Project Folder", "", options=options)
         if not selected_dir:
             return None
         settings.current_folder = selected_dir
-        # Add selected folder to project folders but make sure we don't 
+        # Add selected folder to project folders but make sure we don't
         # duplicate
         settings.project_folders = '::'.join(
             set(str(settings.project_folders).split('::')) | {selected_dir})
         explorer = cls(editor_panel, root_path=selected_dir, parent=parent)
         return explorer
-        
+
     def _toggle_gitignore(self, enabled):
         """Toggles the .gitignore filter on or off and refreshes the model.
         """
@@ -282,11 +348,10 @@ class ProjectExplorer(QDockWidget):
             proxy_root_index = self._filter_proxy.mapFromSource(root_idx)
             self._tree_view.setRootIndex(proxy_root_index)
             # Expand the root so it behaves like an expanded folder
-            self._tree_view.expand(proxy_root_index)        
+            self._tree_view.expand(proxy_root_index)
 
     def _on_expanded_proxy(self, proxy_index):
-        """
-        Convert the proxy index to the source model index and notify LazyQFileSystemModel.
+        """Convert the proxy index to the source model index and notify LazyQFileSystemModel.
         """
         source_index = self._filter_proxy.mapToSource(proxy_index)
         if source_index.isValid():
@@ -294,8 +359,7 @@ class ProjectExplorer(QDockWidget):
             self._model.notify_path_expanded(path)
 
     def _on_collapsed_proxy(self, proxy_index):
-        """
-        Convert the proxy index to the source model index and notify LazyQFileSystemModel.
+        """Convert the proxy index to the source model index and notify LazyQFileSystemModel.
         """
         source_index = self._filter_proxy.mapToSource(proxy_index)
         if source_index.isValid():
@@ -329,15 +393,15 @@ class ProjectExplorer(QDockWidget):
         """Build and show a context menu on right-click."""
         proxy_index = self._tree_view.indexAt(pos)
         source_index = self._filter_proxy.mapToSource(proxy_index)
-    
+
         menu = QMenu(self)
-    
+
         if not source_index.isValid():
-            # Clicked on empty space, same as before
+            # Clicked on empty space
             new_file_action = menu.addAction("New File…")
             new_folder_action = menu.addAction("New Folder…")
             chosen_action = menu.exec_(self._tree_view.mapToGlobal(pos))
-    
+
             if chosen_action == new_file_action:
                 root_path = self._model.rootPath()
                 if os.path.isdir(root_path):
@@ -346,24 +410,29 @@ class ProjectExplorer(QDockWidget):
                 root_path = self._model.rootPath()
                 if os.path.isdir(root_path):
                     self._create_new_folder(root_path)
-    
+
         else:
             path = self._model.filePath(source_index)
             is_file = os.path.isfile(path)
-    
+
             if is_file:
                 # Right-clicked on a file
                 open_action = menu.addAction("Open")
                 open_sys_action = menu.addAction("Open containing folder")
                 rename_action = menu.addAction("Rename…")
+                rename_action.setShortcut(QKeySequence("F2"))
                 delete_action = menu.addAction("Delete")
-    
+                delete_action.setShortcut(QKeySequence.Delete)
+
                 menu.addSeparator()
                 cut_action = menu.addAction("Cut")
+                cut_action.setShortcut(QKeySequence.Cut)
                 copy_action = menu.addAction("Copy")
+                copy_action.setShortcut(QKeySequence.Copy)
                 paste_action = menu.addAction("Paste")
+                paste_action.setShortcut(QKeySequence.Paste)
                 paste_action.setEnabled(self._clipboard_source_path is not None)
-    
+
                 chosen_action = menu.exec_(self._tree_view.mapToGlobal(pos))
                 if chosen_action == open_action:
                     self._editor_panel.open_file(path)
@@ -386,22 +455,30 @@ class ProjectExplorer(QDockWidget):
                     self._clipboard_source_path = path
                 elif chosen_action == paste_action:
                     self._paste_file_or_folder(path)
-    
+
             else:
                 # Right-clicked on a folder
                 open_action = menu.addAction("Open")
+                open_action.setShortcut(QKeySequence.Open)
                 open_sys_action = menu.addAction("Open folder")
                 new_file_action = menu.addAction("New File…")
+                new_file_action.setShortcut(QKeySequence.New)
                 new_folder_action = menu.addAction("New Folder…")
+                new_folder_action.setShortcut(QKeySequence("Ctrl+Shift+N"))
                 rename_action = menu.addAction("Rename…")
+                rename_action.setShortcut(QKeySequence("F2"))
                 delete_action = menu.addAction("Delete")
-    
+                delete_action.setShortcut(QKeySequence.Delete)
+
                 menu.addSeparator()
                 cut_action = menu.addAction("Cut")
+                cut_action.setShortcut(QKeySequence.Cut)
                 copy_action = menu.addAction("Copy")
+                copy_action.setShortcut(QKeySequence.Copy)
                 paste_action = menu.addAction("Paste")
+                paste_action.setShortcut(QKeySequence.Paste)
                 paste_action.setEnabled(self._clipboard_source_path is not None)
-    
+
                 chosen_action = menu.exec_(self._tree_view.mapToGlobal(pos))
                 if chosen_action == open_action:
                     # Expand in the tree if not already expanded
@@ -434,13 +511,21 @@ class ProjectExplorer(QDockWidget):
         """Create a new file in the specified folder."""
         if not os.path.isdir(folder):
             return
-        file_name, ok = QFileDialog.getSaveFileName(self, "New File", folder)
+
+        file_name, ok = QInputDialog.getText(self, "New File", "File name:")
         if not ok or not file_name:
             return
+
+        # Add default extension if none provided
+        if '.' not in file_name:
+            file_name += '.txt'
+
+        file_path = os.path.join(folder, file_name)
+
         try:
-            with open(file_name, 'w', encoding='utf8') as f:
+            with open(file_path, 'w', encoding='utf8') as f:
                 f.write("")
-            logger.info(f"Created file: {file_name}")
+            logger.info(f"Created file: {file_path}")
         except Exception as e:
             QMessageBox.warning(self, "Error", f"Failed to create file:\n{str(e)}")
 
@@ -461,14 +546,30 @@ class ProjectExplorer(QDockWidget):
 
     def _rename_file_or_folder(self, path):
         """Rename a file or folder via an input dialog, then rename in filesystem."""
-        base_dir = os.path.dirname(path)
         old_name = os.path.basename(path)
-        new_name, ok = QFileDialog.getSaveFileName(self, "Rename", os.path.join(base_dir, old_name))
-        if not ok or not new_name:
+        parent_dir = os.path.dirname(path)
+        
+        # Show dialog with current name pre-filled
+        new_name, ok = QInputDialog.getText(
+            self, 
+            "Rename", 
+            f"Rename '{old_name}' to:",
+            text=old_name
+        )
+        
+        if not ok or not new_name or new_name == old_name:
             return
+            
+        new_path = os.path.join(parent_dir, new_name)
+        
+        # Check if target already exists
+        if os.path.exists(new_path):
+            QMessageBox.warning(self, "Error", f"'{new_name}' already exists.")
+            return
+            
         try:
-            os.rename(path, new_name)
-            logger.info(f"Renamed {path} to {new_name}")
+            os.rename(path, new_path)
+            logger.info(f"Renamed '{old_name}' to '{new_name}'")
         except Exception as e:
             QMessageBox.warning(self, "Error", f"Failed to rename:\n{str(e)}")
 
@@ -503,6 +604,28 @@ class ProjectExplorer(QDockWidget):
 
         src = self._clipboard_source_path
         dst = os.path.join(target_path, os.path.basename(src))
+
+        # Handle the case where source and destination are the same (copy operation only)
+        if self._clipboard_operation == 'copy' and os.path.abspath(src) == os.path.abspath(dst):
+            base_name = os.path.basename(src)
+            if os.path.isfile(src) and '.' in base_name:
+                # For files with extensions
+                name, ext = os.path.splitext(base_name)
+                dst = os.path.join(target_path, f"{name} (Copy){ext}")
+            else:
+                # For folders or files without extensions
+                dst = os.path.join(target_path, f"{base_name} (Copy)")
+
+            # If that name also exists, add numbers
+            counter = 2
+            while os.path.exists(dst):
+                if os.path.isfile(src) and '.' in base_name:
+                    name, ext = os.path.splitext(base_name)
+                    dst = os.path.join(target_path, f"{name} (Copy {counter}){ext}")
+                else:
+                    dst = os.path.join(target_path, f"{base_name} (Copy {counter})")
+                counter += 1
+
         try:
             if self._clipboard_operation == 'copy':
                 if os.path.isdir(src):
@@ -517,9 +640,9 @@ class ProjectExplorer(QDockWidget):
 
         self._clipboard_operation = None
         self._clipboard_source_path = None
-        
-    def closeEvent(self, event):        
-        # Add selected folder to project folders but make sure we don't 
+
+    def closeEvent(self, event):
+        # Add selected folder to project folders but make sure we don't
         # duplicate
         settings.project_folders = '::'.join(
             set(str(settings.project_folders).split('::')) - {self._display_root})
