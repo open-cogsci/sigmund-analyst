@@ -7,18 +7,77 @@ logger = logging.getLogger(__name__)
 env_cache = {}
 
 
-def _signature_to_html(signature) -> str:
+def _estimate_width(text):
+    """Helper function to estimate display width of signature
+    (rough approximation)
+    """
+    # Remove HTML tags for width calculation
+    clean_text = re.sub(r'<[^>]+>', '', text)
+    return len(clean_text)
+
+
+def _wrap_params(params, width_limit):
+    """Helper function to wrap signature parameters"""
+    lines = []
+    current_line = []
+    current_width = 1  # Starting with "("
+    
+    for i, param in enumerate(params):
+        param_width = _estimate_width(param)
+        # Add comma and space width for non-first parameters
+        if current_line:
+            param_width += 2
+        
+        # Check if adding this param would exceed width
+        if current_line and current_width + param_width > width_limit:
+            # Start a new line
+            lines.append(", ".join(current_line))
+            current_line = [param]
+            current_width = 6 + param_width  # Indent width + param
+        else:
+            current_line.append(param)
+            current_width += param_width
+    
+    if current_line:
+        lines.append(", ".join(current_line))
+    
+    return lines
+
+
+def _signature_to_html(signature, max_width: int, max_lines: int) -> str:
     """Convert jedi.Script.get_signatures() output to nicely formatted HTML."""
     param_strs = []
     for param in signature.params:
         param_strs.append(param.to_string())
-    # Build the signature line
-    sig_line = ",<br />&nbsp;".join(param_strs)
+    
+    # Get return annotation if available
     return_hint = ""
-    # If there's a known return annotation, append it
     if hasattr(signature, "annotation_string") and signature.annotation_string:
-        return_hint = f"-> {signature.annotation_string}"
-    return f"({sig_line}){return_hint}"
+        return_hint = f" -> {signature.annotation_string}"
+    
+    # Wrap parameters based on max_width
+    wrapped_lines = _wrap_params(param_strs,
+                                 max_width - _estimate_width(return_hint) - 2)
+    
+    # Limit number of lines
+    if len(wrapped_lines) > max_lines:
+        # Keep first max_lines-1 lines and add ellipsis
+        wrapped_lines = wrapped_lines[:max_lines-1]
+        if wrapped_lines:
+            wrapped_lines[-1] += ", ..."
+    
+    # Build the final HTML
+    if len(wrapped_lines) == 0:
+        return f"(){return_hint}"
+    elif len(wrapped_lines) == 1:
+        return f"({wrapped_lines[0]}){return_hint}"
+    else:
+        # Multi-line format with indentation
+        html_lines = [f"({wrapped_lines[0]},"]
+        for line in wrapped_lines[1:-1]:
+            html_lines.append(f"<br />&nbsp;{line},")
+        html_lines.append(f"<br />&nbsp;{wrapped_lines[-1]}){return_hint}")
+        return "".join(html_lines)
 
 
 def _prepare_jedi_script(code: str, cursor_position: int, path: str | None,
@@ -84,8 +143,7 @@ def jedi_complete(code: str, cursor_position: int, path: str | None,
 
 
 def jedi_signatures(code: str, cursor_position: int, path: str | None,
-                    multiline: bool = False, max_width: int = 40,
-                    max_lines: int = 10,
+                    max_width: int = 40, max_lines: int = 10,
                     env_path: str | None = None,
                     prefix: str | None = None) -> list[str]:
     """
@@ -100,7 +158,7 @@ def jedi_signatures(code: str, cursor_position: int, path: str | None,
         logger.info("No code or cursor_position=0; cannot fetch calltip.")
         return None
 
-    logger.info("Starting Jedi calltip request (multiline=%r).", multiline)
+    logger.info("Starting Jedi calltip request")
     script, line_no, column_no = _prepare_jedi_script(code, cursor_position,
                                                       path, env_path, prefix)
 
@@ -111,7 +169,7 @@ def jedi_signatures(code: str, cursor_position: int, path: str | None,
 
     results = []
     for sig in signatures:
-        results.append(_signature_to_html(sig))
+        results.append(_signature_to_html(sig, max_width, max_lines))
 
     logger.info("Got %d signature(s) from Jedi.", len(results))
     return results or None
