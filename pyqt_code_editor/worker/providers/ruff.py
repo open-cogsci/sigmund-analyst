@@ -2,6 +2,7 @@ import subprocess
 import tempfile
 import json
 import os
+import sys
 import logging
 logger = logging.getLogger(__name__)
 
@@ -9,7 +10,7 @@ logger = logging.getLogger(__name__)
 def ruff_check(code: str, prefix: str | None = None) -> list[dict]:
     """
     Lints Python source code using Ruff.
-    
+
     Args:
         code (str): The Python source code to lint.
     """
@@ -25,9 +26,14 @@ def ruff_check(code: str, prefix: str | None = None) -> list[dict]:
         tmp_file_path = tmp_file.name
     print(tmp_file.name)
     cmd = ["ruff", "check", tmp_file_path, "--output-format", "json"]
+    
+    # Set creation flags for Windows to prevent console window from appearing
+    creation_flags = subprocess.CREATE_NO_WINDOW if sys.platform == 'win32' else 0
+    
     try:
         process = subprocess.Popen(cmd, stdout=subprocess.PIPE,
-                                   stderr=subprocess.PIPE, text=True)
+                                   stderr=subprocess.PIPE, text=True,
+                                   creationflags=creation_flags)
         stdout, stderr = process.communicate()
     except Exception as e:
         logger.error(f'failed to invoke ruff: {e}')
