@@ -5,6 +5,8 @@ from pyqt_code_editor import watchdog
 from qtpy.QtWidgets import QApplication, QVBoxLayout, QWidget
 from pyqt_code_editor.code_editors import create_editor
 from pyqt_code_editor.environment_manager import environment_manager
+import logging
+logging.basicConfig(level=logging.INFO, force=True)
 
 
 class MainWindow(QWidget):

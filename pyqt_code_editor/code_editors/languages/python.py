@@ -7,7 +7,7 @@ from pyqt_code_editor.mixins import Complete, PythonAutoIndent, \
 
 class Editor(LineNumber, Zoom, SmartBackspaceDelete, PythonAutoPair, Complete,
              Comment, PythonAutoIndent, SearchReplace, FileLink, Execute,
-             Theme, Check, Shortcuts, Symbols, Base,
+             Theme, Shortcuts, Symbols, Base, Check, 
              QPlainTextEdit):
                  
     code_editor_language = 'python'
