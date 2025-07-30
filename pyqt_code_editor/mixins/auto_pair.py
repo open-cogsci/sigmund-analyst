@@ -42,6 +42,7 @@ class AutoPair:
         # 1) Handle backspace for removing empty pairs like (|)
         if event.key() == Qt.Key_Backspace:
             if self._handle_auto_pair_backspace():
+                super().keyPressEvent(event)
                 return
         
         typed_char = event.text()
@@ -93,39 +94,45 @@ class AutoPair:
     def _handle_auto_pair_backspace(self) -> bool:
         """
         If the cursor is between an exact open_seq and close_seq pair (e.g., '(|)'),
-        remove the full pair. Returns True if handled, False if not.
+        remove the following close_seq. The preceding open_seq will be removed 
+        by the standard backspace. Only works for pairs of single characters.
+        Returns True if handled, False if not.
         """
         cursor = self.textCursor()
         pos = cursor.position()
-        text = self.toPlainText()
-
+    
+        # We need at least one character before and after cursor
+        if pos < 1 or cursor.atEnd():
+            return False
+    
+        # Get the character before the cursor
+        cursor.setPosition(pos - 1)
+        cursor.setPosition(pos, cursor.KeepAnchor)
+        char_before = cursor.selectedText()
+    
+        # Get the character after the cursor
+        cursor.setPosition(pos)
+        cursor.setPosition(pos + 1, cursor.KeepAnchor)
+        char_after = cursor.selectedText()
+    
+        # Check if they form a pair
         for pair in self.PAIRS:
             open_seq = pair["open_seq"]
             close_seq = pair["close_seq"]
-            if open_seq and close_seq:
-                l_open = len(open_seq)
-                l_close = len(close_seq)
-                
-                # Make sure there's enough room before and after the cursor
-                if pos >= l_open and pos + l_close <= len(text):
-                    behind = text[pos - l_open : pos]
-                    ahead = text[pos : pos + l_close]
-
-                    # If the cursor is right between open_seq and close_seq
-                    # with nothing typed in between (e.g. (|))
-                    if behind == open_seq and ahead == close_seq:
-                        c = self.textCursor()
-                        c.beginEditBlock()
-                        # Remove from open_seq start to close_seq end
-                        c.setPosition(pos - l_open)
-                        for _ in range(l_open + l_close):
-                            c.deleteChar()
-                        c.endEditBlock()
-
-                        # Move cursor to the old open_seq start
-                        c.setPosition(pos - l_open)
-                        self.setTextCursor(c)
-                        return True
+        
+            # Only handle single-character pairs
+            if len(open_seq) != 1 or len(close_seq) != 1:
+                continue
+            
+            if char_before == open_seq and char_after == close_seq:
+                logger.info("deleting closing bracket")
+                # Delete only the closing character
+                cursor.setPosition(pos)
+                cursor.deleteChar()
+            
+                # The standard backspace will handle the opening character
+                return True
+    
         return False
 
 
