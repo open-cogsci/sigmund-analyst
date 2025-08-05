@@ -3,9 +3,10 @@ from qtpy.QtWidgets import (
     QLineEdit, QPushButton, QCheckBox, QLabel
 )
 from qtpy.QtCore import Qt, Signal
+from qtpy.QtGui import QKeyEvent
 from .. import settings
 
-    
+
 class SearchReplaceFrame(QFrame):
     """
     A small widget containing 'Find' and optionally 'Replace' fields,
@@ -16,10 +17,10 @@ class SearchReplaceFrame(QFrame):
     findPrevRequested = Signal()
     replaceOneRequested = Signal()
     replaceAllRequested = Signal()
-    
+
     def __init__(self, parent=None):
         super().__init__(parent)
-        
+
         self.setFrameShape(QFrame.StyledPanel)
         self.setFrameShadow(QFrame.Raised)
         editor = parent
@@ -51,14 +52,14 @@ class SearchReplaceFrame(QFrame):
             }}
         ''')
         self.setWindowFlags(Qt.SubWindow | Qt.FramelessWindowHint)
-        
+
         # Layout
         layout = QVBoxLayout(self)
         layout.setContentsMargins(5, 5, 5, 5)
-        
+
         # Find row
         findRow = QHBoxLayout()
-        
+
         self.findLabel = QLabel("Find:", self)
         self.matchCountLabel = QLabel("0 of 0", self)
         self.findEdit = QLineEdit(self)
@@ -68,10 +69,10 @@ class SearchReplaceFrame(QFrame):
         self.regexBox.setToolTip("Use Regular Expressions")
         self.wholeWordBox = QCheckBox("\\b", self)
         self.wholeWordBox.setToolTip("Match Whole Word")
-        
+
         self.findNextBtn = QPushButton("Next", self)
         self.findPrevBtn = QPushButton("Prev", self)
-        
+
         findRow.addWidget(self.findLabel)
         findRow.addWidget(self.findEdit)
         findRow.addWidget(self.matchCountLabel)
@@ -80,34 +81,56 @@ class SearchReplaceFrame(QFrame):
         findRow.addWidget(self.wholeWordBox)
         findRow.addWidget(self.findNextBtn)
         findRow.addWidget(self.findPrevBtn)
-        
+
         layout.addLayout(findRow)
-        
+
         # Replace row
         replaceRow = QHBoxLayout()
         self.replaceLabel = QLabel("Replace:", self)
         self.replaceEdit = QLineEdit(self)
         self.replaceBtn = QPushButton("Replace", self)
         self.replaceAllBtn = QPushButton("Replace All", self)
-        
+
         replaceRow.addWidget(self.replaceLabel)
         replaceRow.addWidget(self.replaceEdit)
         replaceRow.addWidget(self.replaceBtn)
         replaceRow.addWidget(self.replaceAllBtn)
-        
+
         layout.addLayout(replaceRow)
-        
+
         self.replaceRowWidget = replaceRow  # Keep reference to manage visibility
-        
+
         # Connections
         self.findNextBtn.clicked.connect(self.findNextRequested)
         self.findPrevBtn.clicked.connect(self.findPrevRequested)
         self.replaceBtn.clicked.connect(self.replaceOneRequested)
         self.replaceAllBtn.clicked.connect(self.replaceAllRequested)
-        
+
+        # Install event filter to handle Shift+Enter
+        self.findEdit.installEventFilter(self)
+        self.replaceEdit.installEventFilter(self)
+
         # Default: searching only, so hide the "replace" row
         self.showSearchOnly()
-    
+
+    def eventFilter(self, obj, event):
+        """Handle key events for find and replace fields"""
+        if event.type() == QKeyEvent.KeyPress:
+            if event.key() == Qt.Key_Return or event.key() == Qt.Key_Enter:
+                if event.modifiers() & Qt.ShiftModifier:
+                    # Shift+Enter triggers find previous
+                    self.findPrevRequested.emit()
+                    return True
+                elif obj == self.findEdit:
+                    # Enter in find field triggers find next
+                    self.findNextRequested.emit()
+                    return True
+                elif obj == self.replaceEdit:
+                    # Enter in replace field triggers replace
+                    self.replaceOneRequested.emit()
+                    return True
+        return super().eventFilter(obj, event)
+
     def showSearchOnly(self):
         # Hide replace UI
         self.replaceLabel.setVisible(False)
@@ -116,7 +139,7 @@ class SearchReplaceFrame(QFrame):
         self.replaceAllBtn.setVisible(False)
         self.adjustSize()
         self.resize(self.sizeHint())
-    
+
     def showSearchReplace(self):
         # Show replace UI
         self.replaceLabel.setVisible(True)
@@ -125,4 +148,3 @@ class SearchReplaceFrame(QFrame):
         self.replaceAllBtn.setVisible(True)
         self.adjustSize()
         self.resize(self.sizeHint())
-
