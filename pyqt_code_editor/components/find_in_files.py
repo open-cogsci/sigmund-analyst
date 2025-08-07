@@ -269,10 +269,6 @@ class FindInFiles(QDockWidget):
             self._open_file(path, line_no)
     
     def _open_file(self, path, line_no=0):
-        """
-        Dummy method: In production, integrate with your editor logic.
-        """
-        print(f"Opening file: {path}, line {line_no}")
         self.open_file_requested.emit(path, line_no)
     
     def closeEvent(self, event):

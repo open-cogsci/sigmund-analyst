@@ -24,7 +24,6 @@ def ruff_check(code: str, prefix: str | None = None) -> list[dict]:
     with tempfile.NamedTemporaryFile(delete=False, suffix=".py", mode="w") as tmp_file:
         tmp_file.write(code)
         tmp_file_path = tmp_file.name
-    print(tmp_file.name)
     cmd = ["ruff", "check", tmp_file_path, "--output-format", "json"]
     
     # Set creation flags for Windows to prevent console window from appearing
