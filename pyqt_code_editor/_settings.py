@@ -228,11 +228,23 @@ class Settings(QObject):
         if self.font_family != 'default':
             return
         from .utils import get_first_available_font
+    
         self.font_family = get_first_available_font(
             ['Ubuntu Mono', 'Liberation Mono', 'DejaVu Sans Mono', 'Courier New',
              'monospace'])
+    
+        # Fallback if no font was found
+        if self.font_family is None:
+            import platform
+            system = platform.system()
+            if system == 'Windows':
+                self.font_family = 'Consolas'  # Available on Windows Vista+
+            elif system == 'Darwin':  # macOS
+                self.font_family = 'Menlo'     # Default monospace on macOS
+            else:  # Linux and other Unix-like systems
+                self.font_family = 'monospace'  # Generic monospace fallback
+    
         logger.info(f'setting font family to {self.font_family}')
-
 
 # Create the singleton instance
 settings = Settings()
