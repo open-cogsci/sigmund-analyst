@@ -212,12 +212,26 @@ class ProjectExplorer(QDockWidget):
         self._setup_shortcuts()
 
     def _setup_shortcuts(self):
-        """Set up global keyboard shortcuts for common actions."""
-        QShortcut(QKeySequence("F2"), self, activated=lambda: self._handle_rename_shortcut())
-        QShortcut(QKeySequence.Delete, self, activated=lambda: self._handle_delete_shortcut())
-        QShortcut(QKeySequence.Cut, self, activated=lambda: self._handle_cut_shortcut())
-        QShortcut(QKeySequence.Copy, self, activated=lambda: self._handle_copy_shortcut())
-        QShortcut(QKeySequence.Paste, self, activated=lambda: self._handle_paste_shortcut())
+        """Set up keyboard shortcuts for common actions."""
+        shortcut_f2 = QShortcut(QKeySequence("F2"), self)
+        shortcut_f2.setContext(Qt.WidgetWithChildrenShortcut)
+        shortcut_f2.activated.connect(lambda: self._handle_rename_shortcut())
+        
+        shortcut_delete = QShortcut(QKeySequence.Delete, self)
+        shortcut_delete.setContext(Qt.WidgetWithChildrenShortcut)
+        shortcut_delete.activated.connect(lambda: self._handle_delete_shortcut())
+        
+        shortcut_cut = QShortcut(QKeySequence.Cut, self)
+        shortcut_cut.setContext(Qt.WidgetWithChildrenShortcut)
+        shortcut_cut.activated.connect(lambda: self._handle_cut_shortcut())
+        
+        shortcut_copy = QShortcut(QKeySequence.Copy, self)
+        shortcut_copy.setContext(Qt.WidgetWithChildrenShortcut)
+        shortcut_copy.activated.connect(lambda: self._handle_copy_shortcut())
+        
+        shortcut_paste = QShortcut(QKeySequence.Paste, self)
+        shortcut_paste.setContext(Qt.WidgetWithChildrenShortcut)
+        shortcut_paste.activated.connect(lambda: self._handle_paste_shortcut())
 
     def _handle_rename_shortcut(self):
         """Handle F2 shortcut for rename."""
