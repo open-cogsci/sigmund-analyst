@@ -7,6 +7,7 @@ logger = logging.getLogger(__name__)
 STOP_UNUSED_INTERVAL = 10
 _last_stop_unused_time = 0
 _workers = {}  # pid -> {"process", "request_queue", "result_queue", "is_free"}
+suspended = False
 
 
 def send_worker_request(**data) -> (Queue, int):
@@ -16,7 +17,11 @@ def send_worker_request(**data) -> (Queue, int):
 
     The caller can poll the result_queue for responses, and once done,
     call mark_worker_as_free(pid) to release this worker for future use.
+    
+    If workers are suspended, return (None, None).
     """
+    if suspended:
+        return None, None
     # 1. Look for an existing free worker
     for pid, w in list(_workers.items()):
         if w["is_free"] and w["process"].is_alive():
@@ -100,7 +105,7 @@ def stop_all_workers():
     """
     Cleanly shut down all worker processes.
     """
-    logger.info("Stopping all worker processes...")
+    logger.info(f"Stopping {len(_workers)} worker processes...")
     for pid, w in list(_workers.items()):
         if w["process"].is_alive():
             logger.info(f"Stopping worker {pid}.")
@@ -116,4 +121,23 @@ def update_setting(name, value):
     for pid, w in _workers.items():
         if w["process"].is_alive():
             w["request_queue"].put(settings_action)            
+            
+            
+def suspend():
+    """Stops all worker processes and ignores all requests until resume() is 
+    called.
+    """
+    global suspended
+    suspended = True
+    logger.info("Suspending worker processes...")
+    stop_all_workers()
+    
+    
+def resume():
+    """Resumes accepting requests."""
+    global suspended
+    suspended = False
+    logger.info("Resuming worker processes...")
+
+            
 settings.setting_changed.connect(update_setting)

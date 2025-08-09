@@ -74,6 +74,9 @@ class Base:
         so we can handle multiple concurrent requests.
         """
         result_queue, pid = manager.send_worker_request(**data)
+        if result_queue is None:
+            logger.info('Request ignored')
+            return
         self._active_requests[pid] = result_queue
         logger.info(f"Sent request to worker {pid}, now tracking {len(self._active_requests)} active requests.")
 
