@@ -93,7 +93,7 @@ class Settings(QObject):
     shortcut_split_horizontally = SettingProperty('Ctrl+Shift+H', "Shortcuts")
     shortcut_split_vertically = SettingProperty('Ctrl+Shift+V', "Shortcuts")
     shortcut_quick_open_file = SettingProperty('Ctrl+P', "Shortcuts")
-    shortcut_symbols = SettingProperty('Ctrl+R', "Shortcuts")
+    shortcut_symbols = SettingProperty('Ctrl+L', "Shortcuts")
     shortcut_previous_tab = SettingProperty('Ctrl+Shift+Tab', "Shortcuts")
     shortcut_close_all_tabs = SettingProperty('Ctrl+Shift+W', "Shortcuts")
     shortcut_close_other_tabs = SettingProperty('Ctrl+Alt+W', "Shortcuts")
