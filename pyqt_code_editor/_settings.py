@@ -230,8 +230,8 @@ class Settings(QObject):
         from .utils import get_first_available_font
     
         self.font_family = get_first_available_font(
-            ['Ubuntu Mono', 'Liberation Mono', 'DejaVu Sans Mono', 'Courier New',
-             'monospace'])
+            ['Ubuntu Mono', 'Liberation Mono', 'DejaVu Sans Mono', 'Consolas', 
+             'Menlo', 'Courier New', 'monospace'])
     
         # Fallback if no font was found
         if self.font_family is None:
