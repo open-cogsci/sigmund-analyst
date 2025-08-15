@@ -63,6 +63,7 @@ QLineEdit, QListView {{
     padding: 4px;
 }}
 QListView::item:selected {{
+    color: {foreground};
     background-color: {selection_background};
 }}
 '''
