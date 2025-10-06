@@ -18,18 +18,22 @@ def create_editor(path=None, language=None, *args, **kwargs):
         else:
             language = utils.guess_language_from_path(path)
             language = LANGUAGE_MAP.get(language, language)
+    # The language is determined by the pygment lexer, and can be something like
+    # javascript+genshi. This is useful for the highlighter, but for the editor
+    # module we only use the main language.
+    module_name = language.lower().split('+')[0]
     # Load the editor module depending on the language. We store the
     # imported module in a cache for efficiency
-    if language not in editor_module_cache:
+    if module_name not in editor_module_cache:
         try:
             editor_module = importlib.import_module(
-                f".languages.{language}", package=__package__)
+                f".languages.{module_name}", package=__package__)
         except ImportError:
             from .languages import generic as editor_module
-            logger.info(f'failed to load editor module for {language}, falling back to generic')
+            logger.info(f'failed to load editor module for {module_name}, falling back to generic')
         else:
-            logger.info(f'loaded editor module for {language}')
-        editor_module_cache[language] = editor_module
+            logger.info(f'loaded editor module for {module_name}')
+        editor_module_cache[module_name] = editor_module
     else:
         editor_module = editor_module_cache[language]
     editor = editor_module.Editor(*args, language=language, **kwargs)
