@@ -35,7 +35,7 @@ def create_editor(path=None, language=None, *args, **kwargs):
             logger.info(f'loaded editor module for {module_name}')
         editor_module_cache[module_name] = editor_module
     else:
-        editor_module = editor_module_cache[language]
+        editor_module = editor_module_cache[module_name]
     editor = editor_module.Editor(*args, language=language, **kwargs)
     if path is not None:
         editor.open_file(path)
