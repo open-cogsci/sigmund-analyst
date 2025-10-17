@@ -38,10 +38,15 @@ class Base:
         self.modified = False
         self.modificationChanged.connect(self.set_modified)
         # Dictionary mapping pid -> result queue
-        self._active_requests = {}        
+        self._active_requests = {}
+        
+    def unload(self):
+        """Can be implemented in other mixin classes to handle unloading logic.
+        """
+        pass
         
     def eventFilter(self, obj, event):
-        """Can be implement in other mixin classes to filter certain events,
+        """Can be implemented in other mixin classes to filter certain events,
         for example to avoid certain keypresses from being consumed.
         """
         return False

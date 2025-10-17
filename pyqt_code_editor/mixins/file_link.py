@@ -227,3 +227,9 @@ class FileLink:
             if self._file_watcher is not None:
                 self._file_watcher.addPath(changed_path)
         self._watch_file_changes = True
+        
+    def unload(self):
+        if self._file_watcher:
+            self._file_watcher.fileChanged.disconnect(self._on_file_changed)
+        super().unload()
+        

@@ -240,7 +240,8 @@ class TabbedEditor(QTabWidget):
             self.setTabText(index, title)
             return
         logger.info(f'language changed from {from_language} to {to_language}')
-        self.removeTab(index)
+        editor.unload()
+        self.removeTab(index)        
         self.add_code_editor(to_path, index=index)
 
     def add_code_editor(self, path=None, index=None):
