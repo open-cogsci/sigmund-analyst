@@ -226,8 +226,14 @@ class EditorPanel(QWidget):
         return find_first_tab_widget(self)
     
     def active_editor(self):
-        if self._active_editor and self._active_editor.isVisible():
-            return self._active_editor
+        try:
+            if self._active_editor and self._active_editor.isVisible():
+                return self._active_editor
+        except RuntimeError:
+            # This may happen when an editor has been closed, causing Qt to
+            # delete it, while the _active_editor property hasn't been properly
+            # updated.
+            pass
         active_tab_widget = self.active_tab_widget()
         if active_tab_widget is None:
             return None
