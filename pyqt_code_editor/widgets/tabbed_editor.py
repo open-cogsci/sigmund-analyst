@@ -5,6 +5,7 @@ from qtpy.QtWidgets import QTabWidget, QShortcut, QMessageBox, QMenu, QStyle, \
     QApplication, QTabBar
 from qtpy.QtCore import Signal, Qt, QMimeData, QPoint, QByteArray, QDataStream
 from ..code_editors import create_editor
+from ..mixins import Base
 from .. import settings, utils
 from ..signal_router import signal_router
 logger = logging.getLogger(__name__)
@@ -333,17 +334,18 @@ class TabbedEditor(QTabWidget):
         dataByteArray = event.mimeData().data("application/x-tabdata")
         stream = QDataStream(dataByteArray, QDataStream.ReadOnly)
         tabText = stream.readQString()
-        # (We ignore the icon detail in this example or simply set a blank icon.)
-        # If you’re handing around pixmaps, you could store them more explicitly.
-
         # The source tab's DraggableTabBar has already removed it from its QTabWidget.
         # But we need the actual widget object that was being dragged. It's part
         # of the QDrag's source — we can find it by casting. We must be careful:
         sourceBar = event.source()
         if isinstance(sourceBar, DraggableTabBar):
-            draggedWidget = sourceBar.draggedWidget
-        else:
-            draggedWidget = None
+            editor = sourceBar.draggedWidget
+        if not isinstance(editor, Base):
+            logger.warning(f'expecting editor, found {editor}')
+            return
+        editor.modification_changed.connect(self._on_modification_changed)
+        editor.file_name_changed.connect(self._on_file_name_changed)
+        logger.info("dropping editor")
 
         # Insert the tab at the position that the user dropped on
         dropPos = event.position().toPoint()
@@ -352,7 +354,7 @@ class TabbedEditor(QTabWidget):
         if index < 0:
             # If the user dropped to the right of all existing tabs
             index = self.count()
-
-        self.insertTab(index, draggedWidget, tabText)
+        
+        self.insertTab(index, editor, tabText)
         self.setCurrentIndex(index)
         
