@@ -42,29 +42,30 @@ class FileLink:
         # Check file size
         file_size = path.stat().st_size
         is_large = file_size > settings.max_file_size
-        
-        raw_data = path.read_bytes()
         encoding_unknown = False
 
-        if encoding is None:
-            # First see if everything is within ASCII range
-            try:
-                raw_data.decode("utf-8")
-                # If no error -> it's strictly ASCII, so decode as UTF-8
-                used_encoding = "utf-8"
-            except UnicodeDecodeError:
-                # Not pure ASCII; let chardet pick
-                detect_result = chardet.detect(raw_data)
-                # If detection fails or returns None, or confidence is low
-                if (detect_result is None or 
-                    detect_result.get("encoding") is None or
-                    detect_result.get("confidence", 0) < 0.7):
+        if not is_large:
+            raw_data = path.read_bytes()
+    
+            if encoding is None:
+                # First see if everything is within ASCII range
+                try:
+                    raw_data.decode("utf-8")
+                    # If no error -> it's strictly ASCII, so decode as UTF-8
                     used_encoding = "utf-8"
-                    encoding_unknown = True
-                else:
-                    used_encoding = detect_result["encoding"]
-        else:
-            used_encoding = encoding
+                except UnicodeDecodeError:
+                    # Not pure ASCII; let chardet pick
+                    detect_result = chardet.detect(raw_data)
+                    # If detection fails or returns None, or confidence is low
+                    if (detect_result is None or 
+                        detect_result.get("encoding") is None or
+                        detect_result.get("confidence", 0) < 0.7):
+                        used_encoding = "utf-8"
+                        encoding_unknown = True
+                    else:
+                        used_encoding = detect_result["encoding"]
+            else:
+                used_encoding = encoding
             
         # Show warning if file is large or encoding is uncertain
         if is_large or encoding_unknown:
