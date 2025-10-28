@@ -111,6 +111,7 @@ class TabbedEditor(QTabWidget):
     """A tab widget that can hold multiple CodeEditor instances."""
     lastTabClosed = Signal(QTabWidget)
     open_folder_requested = Signal(str)
+    open_file_requested = Signal(str)
     
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -312,6 +313,14 @@ class TabbedEditor(QTabWidget):
             event.ignore()
 
     def dropEvent(self, event):
+        # Insert the tab at the position that the user dropped on
+        dropPos = event.position().toPoint()
+        tabBar = self.tabBar()
+        index = tabBar.tabAt(dropPos)
+        if index < 0:
+            # If the user dropped to the right of all existing tabs
+            index = self.count()        
+        logger.info(f'dropping on tab index {index}')        
         # If a file is dropped, open it in a new tab
         if event.mimeData().hasUrls():
             for url in event.mimeData().urls():
@@ -321,7 +330,10 @@ class TabbedEditor(QTabWidget):
                 if os.path.isdir(path):
                     self.open_folder_requested.emit(path)
                 else:
-                    self.add_code_editor(path)
+                    # Change the focus to the widget that is dopped to make
+                    # sure the file is opened in the right panel
+                    self.widget(min(self.count() - 1, index)).setFocus()
+                    self.open_file_requested.emit(path)
         
         if not event.mimeData().hasFormat("application/x-tabdata"):
             event.ignore()
@@ -346,14 +358,6 @@ class TabbedEditor(QTabWidget):
         editor.modification_changed.connect(self._on_modification_changed)
         editor.file_name_changed.connect(self._on_file_name_changed)
         logger.info("dropping editor")
-
-        # Insert the tab at the position that the user dropped on
-        dropPos = event.position().toPoint()
-        tabBar = self.tabBar()
-        index = tabBar.tabAt(dropPos)
-        if index < 0:
-            # If the user dropped to the right of all existing tabs
-            index = self.count()
         
         self.insertTab(index, editor, tabText)
         self.setCurrentIndex(index)

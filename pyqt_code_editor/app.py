@@ -37,6 +37,7 @@ class SigmundAnalyst(QMainWindow):
         # The editor panel provides splittable editor tabs
         self._editor_panel = EditorPanel()
         self._editor_panel.open_folder_requested.connect(self._open_folder)
+        self._editor_panel.open_file_requested.connect(self._open_file)
         self.setCentralWidget(self._editor_panel)
         self._project_explorers = []
         # Track if project explorers are hidden as a group
@@ -407,6 +408,9 @@ class SigmundAnalyst(QMainWindow):
             self._project_explorers_hidden = False
             for explorer in self._project_explorers:
                 explorer.setVisible(True)
+                
+    def _open_file(self, path):
+        self._editor_panel.open_file(path)
 
     def closeEvent(self, event):
         # Check if there are unsaved changes, and ask for confirmation if there

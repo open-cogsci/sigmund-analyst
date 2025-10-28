@@ -50,6 +50,13 @@ class Base:
         for example to avoid certain keypresses from being consumed.
         """
         return False
+        
+    def setFocus(self):
+        """Allows managing widgets, such as the editor panel, to keep track of
+        which editor is active
+        """
+        super().setFocus()
+        self.received_focus.emit(self)
 
     def focusInEvent(self, event):
         """Allows managing widgets, such as the editor panel, to keep track of

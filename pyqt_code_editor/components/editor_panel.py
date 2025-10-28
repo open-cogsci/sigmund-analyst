@@ -11,6 +11,7 @@ logger = logging.getLogger(__name__)
 class EditorPanel(QWidget):
     
     open_folder_requested = Signal(str)
+    open_file_requested = Signal(str)
     
     def __init__(self, parent=None, initial_path=None):
         super().__init__(parent)
@@ -58,6 +59,7 @@ class EditorPanel(QWidget):
         t.lastTabClosed.connect(self.handle_tabbed_editor_empty)
         t.tabCloseRequested.connect(self._relabel_tabs)
         t.open_folder_requested.connect(self.open_folder_requested)
+        t.open_file_requested.connect(self.open_file_requested)
         return t
     
     def unsaved_changes(self):
@@ -92,7 +94,7 @@ class EditorPanel(QWidget):
             settings.current_folder = os.path.dirname(path)
             self.open_file(path)
             
-    def _keep_track_of_active_editor(self, editor):
+    def _keep_track_of_active_editor(self, editor):        
         logger.info(f"active editor = {editor}")
         self._active_editor = editor
         self._active_tab_widget = self._active_editor.parent().parent()
