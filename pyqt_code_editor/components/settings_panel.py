@@ -104,7 +104,7 @@ class SettingsWidget(QWidget):
             
         elif isinstance(value, int):
             widget = QSpinBox()
-            widget.setRange(-9999, 9999)  # Reasonable default range
+            widget.setRange(int(-1e9), int(1e9))  # Reasonable default range
             widget.setValue(value)
             widget.valueChanged.connect(lambda val, name=setting_name: 
                                        self.update_setting(name, val))
