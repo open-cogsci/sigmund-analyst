@@ -118,7 +118,6 @@ class AutoIndent:
         """
         logger.info("indent_code triggered")
         cursor = self.textCursor()
-        cursor.beginEditBlock()
 
         if self._is_multiline_selection():
             logger.info("Multi-line selection -> indent each line")
@@ -128,8 +127,6 @@ class AutoIndent:
             indent_str = self._get_indent_string()
             cursor.insertText(indent_str)
 
-        cursor.endEditBlock()
-
     def dedent_code(self):
         """
         Dedent either the selected lines (if multi-line selection)
@@ -137,7 +134,6 @@ class AutoIndent:
         """
         logger.info("dedent_code triggered")
         cursor = self.textCursor()
-        cursor.beginEditBlock()
 
         if self._is_multiline_selection():
             logger.info("Multi-line selection -> dedent each line")
@@ -155,8 +151,6 @@ class AutoIndent:
             cursor.setPosition(line_start)
             for _ in range(remove_chars):
                 self._delete_forward_if_tab_or_space(cursor)
-
-        cursor.endEditBlock()
 
     def _indent_selection(self):
         """

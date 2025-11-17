@@ -47,7 +47,6 @@ class Shortcuts:
         start, end = self._current_line_bounds(cursor)
         doc_length = self.document().characterCount()
         
-        cursor.beginEditBlock()
         # We want to remove the trailing or preceding newline, but not both.
         if end < doc_length - 1:
             end += 1
@@ -56,7 +55,6 @@ class Shortcuts:
         cursor.setPosition(start)
         cursor.setPosition(end, QTextCursor.KeepAnchor)
         cursor.removeSelectedText()
-        cursor.endEditBlock()
 
     def _current_line_bounds(self, cursor=None):
         """
@@ -85,7 +83,6 @@ class Shortcuts:
         """
         doc = self.document()
         cursor = self.textCursor()
-        cursor.beginEditBlock()
     
         anchor = cursor.anchor()
         pos = cursor.position()
@@ -164,7 +161,6 @@ class Shortcuts:
         cursor.setPosition(anchor)
         cursor.setPosition(pos, QTextCursor.KeepAnchor)
         self.setTextCursor(cursor)        
-        cursor.endEditBlock()
         self.refresh()
     
     def _move_line_up(self):
@@ -183,7 +179,6 @@ class Shortcuts:
         In other words, it should appear as if the duplication is inserted above.
         """
         cursor = self.textCursor()
-        cursor.beginEditBlock()
         
         # 1) Remember original anchor and cursor positions
         original_anchor = cursor.anchor()
@@ -224,4 +219,3 @@ class Shortcuts:
         cursor.setPosition(original_position + inserted_length, cursor.KeepAnchor)
         
         self.setTextCursor(cursor)        
-        cursor.endEditBlock()

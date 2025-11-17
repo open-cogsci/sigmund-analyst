@@ -51,7 +51,6 @@ class PythonAutoIndent:
         if key in (Qt.Key_Enter, Qt.Key_Return):
             logger.info("Enter/Return pressed")
             cursor = self.textCursor()
-            cursor.beginEditBlock()
     
             # Use QTextCursor to get text up to cursor position
             # This handles UTF-16 encoding correctly
@@ -66,7 +65,6 @@ class PythonAutoIndent:
             if new_indent > 0:
                 logger.info("Inserting %d spaces of indentation", new_indent)
                 self._insert_indentation(new_indent)
-            cursor.endEditBlock()
             self.setTextCursor(cursor)
             return
         # Otherwise, default behavior
@@ -144,7 +142,6 @@ class PythonAutoIndent:
         """
         logger.info("Indent code triggered")
         cursor = self.textCursor()
-        cursor.beginEditBlock()
 
         if self._is_multiline_selection():
             logger.info("Multi-line selection detected -> Indenting each line")
@@ -154,8 +151,6 @@ class PythonAutoIndent:
             # Insert spacing at the current cursor position
             cursor.insertText(' ' * settings.tab_width)
 
-        cursor.endEditBlock()
-
     def dedent_code(self):
         """
         Dedent either the selected lines (if multi-line selection)
@@ -164,8 +159,6 @@ class PythonAutoIndent:
         """
         logger.info("Dedent code triggered")
         cursor = self.textCursor()
-        cursor.beginEditBlock()
-
         if self._is_multiline_selection():
             logger.info("Multi-line selection detected -> Dedenting each line")
             self._dedent_selection()
@@ -184,8 +177,6 @@ class PythonAutoIndent:
             cursor.setPosition(line_start)
             for _ in range(remove_spaces):
                 self._delete_forward_if_space(cursor)
-
-        cursor.endEditBlock()
 
     def _indent_selection(self):
         """

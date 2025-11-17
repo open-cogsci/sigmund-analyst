@@ -35,10 +35,8 @@ class Comment:
                 # Extract the indentation from the current line
                 indentation = line_text[:len(line_text) - len(stripped)]                
                 # Insert newline with same indentation plus comment marker
-                cursor.beginEditBlock()
                 cursor.insertText(
                     '\n' + indentation + self.code_editor_comment_string)
-                cursor.endEditBlock()
                 event.accept()
                 return
         super().keyPressEvent(event)    
@@ -76,7 +74,6 @@ class Comment:
     def _comment_blocks(self, start_block: int, end_block: int):
         """Comment all lines from start_block to end_block."""
         cursor = self.textCursor()
-        cursor.beginEditBlock()  # group undo steps
         for block_num in range(start_block, end_block + 1):
             block = self.document().findBlockByNumber(block_num)
             if not block.isValid():
@@ -87,12 +84,10 @@ class Comment:
             insert_position = block.position() + leading_spaces
             cursor.setPosition(insert_position)
             cursor.insertText(self.code_editor_comment_string)  
-        cursor.endEditBlock()
 
     def _uncomment_blocks(self, start_block: int, end_block: int):
         """Uncomment all lines from start_block to end_block."""
         cursor = self.textCursor()
-        cursor.beginEditBlock()
         for block_num in range(start_block, end_block + 1):
             block = self.document().findBlockByNumber(block_num)
             if not block.isValid():
@@ -107,4 +102,3 @@ class Comment:
                 cursor.setPosition(remove_position + strip_len, cursor.KeepAnchor)
                 if cursor.selectedText() == self.code_editor_comment_string.rstrip('\r\n'):
                     cursor.removeSelectedText()
-        cursor.endEditBlock()
