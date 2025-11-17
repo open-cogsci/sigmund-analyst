@@ -1,8 +1,9 @@
-from qtpy.QtWidgets import (QDockWidget, QWidget, QVBoxLayout, QHBoxLayout, 
-                            QTableView, QHeaderView, QLineEdit, QLabel, 
-                            QAbstractItemView, QMenu, QAction)
-from qtpy.QtCore import Qt, QSortFilterProxyModel, QAbstractTableModel, QModelIndex
-from qtpy.QtGui import QIcon, QColor, QFont, QBrush
+from qtpy.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QTableView, 
+                            QHeaderView, QLineEdit, QAbstractItemView, QMenu,
+                            QAction)
+from qtpy.QtCore import (Qt, QSortFilterProxyModel, QAbstractTableModel,
+                         QModelIndex)
+from qtpy.QtGui import QColor, QFont, QBrush
 from ..widgets import Dock
 
 
@@ -77,6 +78,7 @@ class WorkspaceModel(QAbstractTableModel):
             return self._headers[section]
         return None
 
+
 class WorkspaceExplorer(Dock):
     """Dock widget for exploring variables in the Jupyter workspace"""
     
@@ -150,13 +152,7 @@ class WorkspaceExplorer(Dock):
             # Add actions specific to the variable
             inspect_action = QAction(f"Inspect '{var_name}'", self)
             delete_action = QAction(f"Delete '{var_name}'", self)
-            
             menu.addAction(inspect_action)
             menu.addAction(delete_action)
-            
-            # Show the menu
-            action = menu.exec_(self.table_view.mapToGlobal(position))
-            
-            # Handle action selection
-            # (In a real implementation, would connect to actual functionality)
+            menu.exec_(self.table_view.mapToGlobal(position))
             
