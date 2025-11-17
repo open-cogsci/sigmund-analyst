@@ -15,3 +15,4 @@ from .shortcuts import Shortcuts
 from .theme import Theme
 from .zoom import Zoom
 from .merge_undo_actions import MergeUndoActions
+from .highlight_matching_brackets import HighlightMatchingBrackets

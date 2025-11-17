@@ -17,15 +17,22 @@ dependencies = [
     "jedi",
     "httpx<0.29.0",
     "mistralai",
+    "opensesame-extension-sigmund",
     "pathspec",
     "psutil",
     "pygments",
     "qtawesome",
     "qtpy",
-    "ruff",
-    "opensesame-extension-sigmund",
     "pyqt6",
-    "qtconsole"
+    "qtconsole",
+    "tree-sitter",
+    "tree-sitter-javascript",
+    "tree-sitter-json",
+    "tree-sitter-html"
+    "tree-sitter-python",
+    "tree-sitter-toml",
+    "tree-sitter-yaml",
+    "ruff"
 ]
 keywords = ["code editor", "pyqt", "ide"]
 

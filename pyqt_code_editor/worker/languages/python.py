@@ -1,4 +1,4 @@
-from ..providers import jedi, codestral, ruff
+from ..providers import jedi, codestral, ruff, tree_sitter
 
 
 def complete(code, cursor_pos, path, multiline, full, env_path, prefix):
@@ -24,3 +24,4 @@ def complete(code, cursor_pos, path, multiline, full, env_path, prefix):
 calltip = jedi.jedi_signatures
 check = ruff.ruff_check
 symbols = jedi.jedi_symbols
+matching_brackets = tree_sitter.tree_sitter_matching_brackets

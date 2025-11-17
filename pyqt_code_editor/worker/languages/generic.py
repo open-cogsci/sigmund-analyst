@@ -1,4 +1,4 @@
-from ..providers import symbol, codestral
+from ..providers import symbol, codestral, tree_sitter
 
 def complete(code, cursor_pos, path, multiline, full, env_path, prefix):
     if full or multiline:
@@ -13,3 +13,4 @@ def complete(code, cursor_pos, path, multiline, full, env_path, prefix):
 calltip = None
 check = None
 symbols = None
+matching_brackets = tree_sitter.tree_sitter_matching_brackets

@@ -28,7 +28,7 @@ def main_worker_process_function(request_queue, result_queue):
     Required fields:
         action : str
             The action to perform. One of: 'complete', 'calltip', 'symbols', 
-            'check', 'set_settings', 'quit'
+            'check', 'set_settings', 'quit', 'matching_brackets'
     
     Optional fields (depending on action):
         language : str, default 'text'
@@ -80,6 +80,12 @@ def main_worker_process_function(request_queue, result_queue):
         {
             'action': 'check',
             'messages': dict
+        }
+        
+    For 'matching_brackets' action:
+        {
+             'action': 'matching_brackets',
+             'pairs': list[(int, int)]
         }
     
     Behavior
@@ -211,5 +217,15 @@ def main_worker_process_function(request_queue, result_queue):
                 'action': 'check',
                 'messages': check_results
             })
+            
+        elif action == 'matching_brackets':
+            if worker_functions.matching_brackets is None:
+                pairs = []
+            else:
+                pairs = worker_functions.matching_brackets(code, language)
+            result_queue.put({
+                'action': 'matching_brackets',
+                'pairs': pairs
+            })            
 
     logger.info("Completion worker has shut down.")
