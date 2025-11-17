@@ -28,7 +28,7 @@ dependencies = [
     "tree-sitter",
     "tree-sitter-javascript",
     "tree-sitter-json",
-    "tree-sitter-html"
+    "tree-sitter-html",
     "tree-sitter-python",
     "tree-sitter-toml",
     "tree-sitter-yaml",
