@@ -23,10 +23,6 @@ class Check:
         self._check_debounce_timer.setSingleShot(True)
         self._check_debounce_timer.setInterval(500)
         self._check_debounce_timer.timeout.connect(self._execute_check)
-        # Periodic timer: also periodically run a check
-        self._check_interval_timer = QTimer(self)
-        self._check_interval_timer.setInterval(5000)
-        self._check_interval_timer.timeout.connect(self._execute_check)
 
         # Connect textChanged signal to a debounced method
         self.textChanged.connect(self._on_code_changed)
