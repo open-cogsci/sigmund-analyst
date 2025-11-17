@@ -83,7 +83,7 @@ class HighlightMatchingBrackets:
 
         # Create yellow background format
         fmt = QTextCharFormat()
-        fmt.setBackground(QColor(255, 255, 0, 100))  # Yellow with some transparency
+        fmt.setBackground(QColor(255, 255, 0, 50))  # Yellow with some transparency
 
         selection = QTextEdit.ExtraSelection()
         selection.cursor = cursor
