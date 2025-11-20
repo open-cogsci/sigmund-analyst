@@ -9,22 +9,44 @@ class MergeUndoActions:
     """
     def keyPressEvent(self, event):
         # Navigation keys that should NOT be wrapped in edit blocks. This 
-        # causes a specific issue with the cursor jumping to the start of a 
-        # line when navigating vertically.
+        # avoids cursor glitches when navigating vertically/horizontally.
         navigation_keys = {
             Qt.Key.Key_Up, Qt.Key.Key_Down, 
             Qt.Key.Key_Left, Qt.Key.Key_Right,
             Qt.Key.Key_Home, Qt.Key.Key_End,
-            Qt.Key.Key_PageUp, Qt.Key.Key_PageDown
+            Qt.Key.Key_PageUp, Qt.Key.Key_PageDown,
         }
-        is_navigation = (event.key() in navigation_keys and 
-                         not (event.modifiers() & Qt.KeyboardModifier.ShiftModifier))        
-        if is_navigation:            
+
+        key = event.key()
+        modifiers = event.modifiers()
+
+        is_navigation = (
+            key in navigation_keys
+            and not (modifiers & Qt.KeyboardModifier.ShiftModifier)
+        )
+
+        # Treat platform "command" modifier as well (Control on Windows/Linux, Meta on macOS)
+        ctrl_or_meta = Qt.KeyboardModifier.ControlModifier | Qt.KeyboardModifier.MetaModifier
+        has_ctrl_or_meta = bool(modifiers & ctrl_or_meta)
+        has_shift = bool(modifiers & Qt.KeyboardModifier.ShiftModifier)
+
+        # Common Undo/Redo shortcuts:
+        # - Undo:  Ctrl+Z / Cmd+Z
+        # - Redo:  Ctrl+Shift+Z / Cmd+Shift+Z / Ctrl+Y / Cmd+Y
+        is_undo = has_ctrl_or_meta and key == Qt.Key.Key_Z and not has_shift
+        is_redo = has_ctrl_or_meta and (
+            (key == Qt.Key.Key_Z and has_shift) or
+            key == Qt.Key.Key_Y
+        )
+
+        if is_navigation or is_undo or is_redo:
+            # Do not wrap these in an edit block
             super().keyPressEvent(event)
             return
-        # Wrap all other keys (editing operations) in a single edit block to
-        # unify changes into a single undo action
-        cursor = QTextCursor(self.document())
+
+        # For editing keys, wrap the operation in a single edit block.
+        # Use the widget's actual text cursor, not a fresh document cursor.
+        cursor = self.textCursor()
         cursor.beginEditBlock()
         try:
             super().keyPressEvent(event)
