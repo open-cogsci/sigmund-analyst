@@ -39,6 +39,11 @@ class AutoPair:
         selected_text = cursor.selectedText()
         doc_text = self.toPlainText()
         doc_len = len(doc_text)
+        # If the old cursor position is beyond the length of the document, then
+        # we don't need to do anything.
+        if old_pos >= doc_len:
+            super().keyPressEvent(event)
+            return
         # Get character before cursor
         if old_pos > 0:
             char_before = doc_text[old_pos - 1]
