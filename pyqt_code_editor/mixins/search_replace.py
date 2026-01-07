@@ -8,10 +8,9 @@ from qtpy.QtCore import Qt
 from .. import settings
 from ..widgets.search_replace_frame import SearchReplaceFrame
 
-
 class SearchReplaceHighlighter(QSyntaxHighlighter):
     """
-    Simple syntax highlighter that highlights all matches of a given pattern.
+    Syntax highlighter that highlights all matches of a given pattern.
     Updated whenever the pattern or text changes.
     """
     def __init__(self, parent=None):
@@ -20,46 +19,87 @@ class SearchReplaceHighlighter(QSyntaxHighlighter):
         self._use_regex = False
         self._case_sensitive = False
         self._whole_word = False
-        
+        self._matches = []  # Stores all matches in the document as (block_number, start, length)
+
         # Highlight style
         self.highlight_format = QTextCharFormat()
         self.highlight_format.setBackground(QColor(settings.search_replace_background))
         self.highlight_format.setForeground(QColor(settings.search_replace_foreground))
-    
+
     def setSearchOptions(self, pattern, use_regex, case_sensitive, whole_word):
         self._pattern = pattern
         self._use_regex = use_regex
         self._case_sensitive = case_sensitive
         self._whole_word = whole_word
         self.rehighlight()  # Trigger a re-scan
-    
-    def highlightBlock(self, text):
-        if not self._pattern:
+
+    def rehighlight(self):
+        """Find all matches in the entire document and store them"""
+        if not self._pattern or not self.document():
+            self._matches = []
+            super().rehighlight()
             return
-        
+
         # Build the pattern
         pattern = self._pattern
         flags = 0 if self._case_sensitive else re.IGNORECASE
-    
+
         if self._use_regex:
-            # If whole_word is asked for, add \b on both sides (can be tricky with punctuation).
             if self._whole_word:
                 pattern = rf"\b{pattern}\b"
             try:
                 regex = re.compile(pattern, flags)
             except re.error:
-                return  # invalid regex, just skip
+                self._matches = []
+                super().rehighlight()
+                return
         else:
-            # Escape user text if not in regex mode
             pattern = re.escape(pattern)
             if self._whole_word:
                 pattern = rf"\b{pattern}\b"
             regex = re.compile(pattern, flags)
-        
-        for match in regex.finditer(text):
+
+        # Find all matches in the entire document
+        self._matches = []
+        full_text = self.document().toPlainText()
+        for match in regex.finditer(full_text):
             start = match.start()
-            length = match.end() - match.start()
-            self.setFormat(start, length, self.highlight_format)
+            end = match.end()
+
+            # Convert character positions to block/position
+            block = self.document().findBlock(start)
+            block_number = block.blockNumber()
+            block_start = block.position()
+            block_end = block_start + block.length() - 1
+
+            # Handle matches that span multiple blocks
+            while start <= block_end and end > block_start:
+                match_start_in_block = max(start - block_start, 0)
+                match_end_in_block = min(end - block_start, block.length() - 1)
+                match_length = match_end_in_block - match_start_in_block
+
+                if match_length > 0:
+                    self._matches.append((block_number, match_start_in_block, match_length))
+
+                # Move to next block if match spans multiple blocks
+                if end > block_end:
+                    block = block.next()
+                    if not block.isValid():
+                        break
+                    block_number = block.blockNumber()
+                    block_start = block.position()
+                    block_end = block_start + block.length() - 1
+                else:
+                    break
+
+        super().rehighlight()
+
+    def highlightBlock(self, text):
+        """Highlight matches that belong to this block"""
+        block_number = self.currentBlock().blockNumber()
+        for match_block, start, length in self._matches:
+            if match_block == block_number:
+                self.setFormat(start, length, self.highlight_format)
 
 
 class SearchReplace:
