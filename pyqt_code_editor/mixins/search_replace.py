@@ -325,13 +325,14 @@ class SearchReplace:
         needle = self._searchFrame.findEdit.text()
         if not needle:
             return
-        
+
         replacement = self._searchFrame.replaceEdit.text()
-        
-        # Save cursor
+
+        # Save cursor and get current text
         saved_cursor = self.textCursor()
+        cursor_pos = saved_cursor.position()
         text = self.toPlainText()
-        
+
         # Build regex pattern
         flags = 0 if self._searchFrame.caseBox.isChecked() else re.IGNORECASE
         patt = needle
@@ -339,20 +340,34 @@ class SearchReplace:
             patt = re.escape(patt)
         if self._searchFrame.wholeWordBox.isChecked():
             patt = rf"\b{patt}\b"
-        
+
         try:
             compiled = re.compile(patt, flags)
         except re.error:
             return
-        
+
+        # Get text before cursor
+        text_before = text[:cursor_pos]
+
+        # Apply replacement to full text
         new_text, num_replacements = compiled.subn(replacement, text)
-        self.setPlainText(new_text)
-        
-        # After replace all, set the needle to the replacement text
+
+        # Apply replacement to just the before portion to calculate position change
+        new_text_before, _ = compiled.subn(replacement, text_before)
+        length_change = len(new_text_before) - len(text_before)
+        new_cursor_pos = cursor_pos + length_change
+
+        # Use a single undoable operation
+        cursor = self.textCursor()
+        cursor.beginEditBlock()
+        cursor.select(QTextCursor.Document)
+        cursor.insertText(new_text)
+        cursor.setPosition(new_cursor_pos)
+        cursor.endEditBlock()
+        self.setTextCursor(cursor)
+
+        # Update UI
         self._searchFrame.findEdit.setText(replacement)
-        
-        # Restore cursor
-        self.setTextCursor(saved_cursor)
         self.updateHighlighter()
         self.set_modified(True)
     
