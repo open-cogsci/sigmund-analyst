@@ -44,6 +44,7 @@ class Comment:
     def _toggle_comment(self):
         """Toggle comment on the current selection or current line."""
         cursor = self.textCursor()
+        cursor.beginEditBlock()
         if not cursor.hasSelection():
             # If no selection, just operate on the current line
             cursor.select(cursor.LineUnderCursor)
@@ -70,6 +71,7 @@ class Comment:
             self._uncomment_blocks(startBlock, endBlock)
         else:
             self._comment_blocks(startBlock, endBlock)
+        cursor.endEditBlock()
 
     def _comment_blocks(self, start_block: int, end_block: int):
         """Comment all lines from start_block to end_block."""
@@ -84,6 +86,7 @@ class Comment:
             insert_position = block.position() + leading_spaces
             cursor.setPosition(insert_position)
             cursor.insertText(self.code_editor_comment_string)  
+        self.setTextCursor(cursor)
 
     def _uncomment_blocks(self, start_block: int, end_block: int):
         """Uncomment all lines from start_block to end_block."""
@@ -102,3 +105,4 @@ class Comment:
                 cursor.setPosition(remove_position + strip_len, cursor.KeepAnchor)
                 if cursor.selectedText() == self.code_editor_comment_string.rstrip('\r\n'):
                     cursor.removeSelectedText()
+        self.setTextCursor(cursor)                    
