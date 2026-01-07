@@ -349,6 +349,10 @@ class SigmundAnalyst(QMainWindow):
         self._jupyter_console.execute_code(code)
 
     def _execute_file(self, path):
+        working_directory = os.path.dirname(path)
+        if os.path.isdir(working_directory):
+            self._jupyter_console.change_directory(working_directory)
+        self._toggle_dock_widget(self._jupyter_console, show=True)
         self._jupyter_console.execute_file(path)
 
     def _find_in_files(self):
