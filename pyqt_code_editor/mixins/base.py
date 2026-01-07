@@ -106,7 +106,9 @@ class Base:
         if the worker died or the result queue is empty, keep polling.
         """
         to_remove = []
-        for pid, queue in self._active_requests.items():
+        # Create a list of active requests to avoid the dictionary being 
+        # changed during iteration
+        for pid, queue in list(self._active_requests.items()):
             # 1) Check if the worker is still alive
             if not manager.check_worker_alive(pid):
                 logger.warning(f"Worker process {pid} no longer alive. Removing from active requests.")
@@ -143,7 +145,7 @@ class Base:
         # Cleanup: remove completed or dead requests. Also stop unused workers.
         # This function periodically prunes worker processes if they are unused.
         for pid in to_remove:
-            self._active_requests.pop(pid, None)            
+            self._active_requests.pop(pid, None)
         manager.stop_unused_workers()
         
     def set_modified(self, modified):
