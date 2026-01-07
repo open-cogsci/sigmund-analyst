@@ -88,7 +88,6 @@ class AutoPair:
         if typed_char and len(typed_char) == 1:
             for pair in self.PAIRS:
                 if typed_char == pair["close_seq"]:
-                    print(typed_char)
                     new_cursor = self.textCursor()
                     new_pos = new_cursor.position()
                     new_doc_text = self.toPlainText()
