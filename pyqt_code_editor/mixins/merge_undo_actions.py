@@ -20,11 +20,6 @@ class MergeUndoActions:
         key = event.key()
         modifiers = event.modifiers()
 
-        is_navigation = (
-            key in navigation_keys
-            and not (modifiers & Qt.KeyboardModifier.ShiftModifier)
-        )
-
         # Treat platform "command" modifier as well (Control on Windows/Linux, Meta on macOS)
         ctrl_or_meta = Qt.KeyboardModifier.ControlModifier | Qt.KeyboardModifier.MetaModifier
         has_ctrl_or_meta = bool(modifiers & ctrl_or_meta)
@@ -39,7 +34,7 @@ class MergeUndoActions:
             key == Qt.Key.Key_Y
         )
 
-        if is_navigation or is_undo or is_redo:
+        if key in navigation_keys or is_undo or is_redo:
             # Do not wrap these in an edit block
             super().keyPressEvent(event)
             return
