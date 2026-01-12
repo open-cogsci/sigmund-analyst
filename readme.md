@@ -1,6 +1,6 @@
 # PyQt Code Editor / Sigmund Analyst
 
-Copyright 2025 Sebastiaan Mathôt
+Copyright 2025-2026 Sebastiaan Mathôt
 
 
 ## About
