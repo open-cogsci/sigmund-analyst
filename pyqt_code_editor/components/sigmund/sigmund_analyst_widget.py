@@ -1,21 +1,66 @@
 import os
+import time
 from sigmund_qtwidget.sigmund_widget import SigmundWidget
+from qtpy.QtCore import QEventLoop, QTimer
 import logging
 logger = logging.getLogger(__name__)
-        
-        
+
+
 class SigmundAnalystWidget(SigmundWidget):
     """Extends the default Sigmund widget with Sigmund Analyst-specific
     functionality.
     """
-    def __init__(self, parent, editor_panel):    
+    def __init__(self, parent, editor_panel):
         super().__init__(parent, application='Sigmund Analyst')
+        try:
+            self._jupyter_console = parent.parent()._jupyter_console
+            # Connect the code_executed signal to a slot
+        except AttributeError:
+            logger.warning('No Jupyter console found.')
+            self._jupyter_console = None
+        else:
+            self._jupyter_console.execution_complete.connect(
+                self._handle_execution_result)
         self._editor_panel = editor_panel
+        self._transient_settings = {
+            'tool_ide_open_file': 'true',
+            'tool_ide_execute_code': 'true'
+        }
+        # Store execution results
+        self._execution_result = None
+        self._execution_loop = None
+
+    def _handle_execution_result(self, output, result):
+        """Slot that handles the code_executed signal."""
+        self._execution_result = (output, result)
+        if self._execution_loop and self._execution_loop.isRunning():
+            time.sleep(0.5)  # Wait for errors to appear
+            self._execution_loop.quit()
+
+    def run_command_execute_code(self, code, language):
+        if self._jupyter_console is None:
+            return 'Code execution not supported.'
+
+        self._execution_result = None
+        self._execution_loop = QEventLoop()
+        QTimer.singleShot(30000, self._execution_loop.quit)  # 30 second timeout
+        self._jupyter_console.execute_code(code)
+        self._execution_loop.exec_()
+        self._execution_loop = None
+        if self._execution_result is None:
+            return 'Code execution timed out or failed to return a result.'
+        try:
+            console_content = self._jupyter_console.get_current_console().jupyter_widget._control.toPlainText()
+        except Exception as e:
+            return f'Failed to get results from console content: {e}'
+            console_content = ''
+        console_content = '\n'.join(console_content.splitlines()[-100:])
+        return f'# Console output (may be truncated):\n\n{console_content}'
         
     @property
     def _editor(self):
         return self._editor_panel.active_editor()        
-    
+        
     def send_user_message(self, text, *args, **kwargs):
         current_path = self._editor.code_editor_file_path
         # If the editor is not linked to a file, simply use the working 
