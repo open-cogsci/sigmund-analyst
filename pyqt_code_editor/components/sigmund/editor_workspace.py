@@ -73,11 +73,14 @@ class EditorWorkspace:
     
     def set(self, content, language):
         text_cursor = self._editor.textCursor()
+        text_cursor.beginEditBlock()
         if text_cursor.hasSelection():
             text_cursor.insertText(content)
-            self._editor.setTextCursor(text_cursor)
         else:
-            self._editor.setPlainText(content)
+            text_cursor.select(text_cursor.Document)
+            text_cursor.insertText(content)
+        text_cursor.endEditBlock()
+        self._editor.setTextCursor(text_cursor)
         self._editor.set_modified(True)
     
     def has_changed(self, content, language):
