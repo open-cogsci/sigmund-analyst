@@ -120,6 +120,7 @@ class Settings(QObject):
     check_interval_delay = SettingProperty(5000, "Checking")
     
     # Sigmund provider
+    sigmund_review_actions = SettingProperty(True, "Sigmund")
     sigmund_max_context = SettingProperty(2000, "Sigmund")
     sigmund_fim_endpoint = SettingProperty('http://localhost:5000/code_completion/fim', "Sigmund")
     sigmund_token = SettingProperty(None, "Sigmund")

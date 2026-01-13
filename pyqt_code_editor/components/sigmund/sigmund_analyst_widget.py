@@ -2,18 +2,27 @@ import os
 import time
 from sigmund_qtwidget.sigmund_widget import SigmundWidget
 from qtpy.QtCore import QEventLoop, QTimer
+from qtpy.QtWidgets import QMessageBox, QDialog
+from .sigmund_analyst_chat_widget import SigmundAnalystChatWidget
+from .confirm_run_code_dialog import ConfirmRunCodeDialog
+from ... import settings
 import logging
 logger = logging.getLogger(__name__)
+
+ACTION_CANCELLED = 'I do not approve this action.'
 
 
 class SigmundAnalystWidget(SigmundWidget):
     """Extends the default Sigmund widget with Sigmund Analyst-specific
     functionality.
     """
+    chat_widget_cls = SigmundAnalystChatWidget
+
     def __init__(self, parent, editor_panel):
         super().__init__(parent, application='Sigmund Analyst')
         try:
-            self._jupyter_console = parent.parent()._jupyter_console
+            self._app = parent.parent()
+            self._jupyter_console = self._app._jupyter_console
             # Connect the code_executed signal to a slot
         except AttributeError:
             logger.warning('No Jupyter console found.')
@@ -30,6 +39,34 @@ class SigmundAnalystWidget(SigmundWidget):
         self._execution_result = None
         self._execution_loop = None
 
+    def _confirm_action(self, action_type, details):
+        """Show a confirmation dialog for the proposed action.
+
+        Args:
+            action_type (str): Type of action (e.g., "open file", "execute code")
+            details (str): Detailed information about the action
+
+        Returns:
+            bool: True if action is approved, False otherwise
+        """
+        if not settings.sigmund_review_actions:
+            return True
+
+        if action_type == "open file":
+            return QMessageBox.question(
+                self, 
+                "Open file",
+                f"Sigmund wants to open: \n\n{details}",
+                QMessageBox.Ok | QMessageBox.Cancel,
+                QMessageBox.Ok
+            ) == QMessageBox.Ok
+        dialog = ConfirmRunCodeDialog(
+            self,
+            action_type,
+            details
+        )
+        return dialog.exec_() == QDialog.Accepted
+
     def _handle_execution_result(self, output, result):
         """Slot that handles the code_executed signal."""
         self._execution_result = (output, result)
@@ -37,10 +74,28 @@ class SigmundAnalystWidget(SigmundWidget):
             time.sleep(0.5)  # Wait for errors to appear
             self._execution_loop.quit()
 
+    def run_command_open_file(self, path):
+        if settings.sigmund_review_actions:
+            if not QMessageBox.question(self, 
+                                        "Confirm open file",
+                                        f"Sigmund wants to open: \n\n{path}",
+                                        QMessageBox.Ok | QMessageBox.Cancel,
+                                        QMessageBox.Ok) == QMessageBox.Ok:
+                return ACTION_CANCELLED
+        try:
+            self._editor_panel.open_file(path)
+        except Exception as e:
+            return f'Failed to open file: {e}'
+        return f'Opened file: {path}'
+
     def run_command_execute_code(self, code, language):
+        if settings.sigmund_review_actions:
+            if not ConfirmRunCodeDialog(self, code, language).exec() \
+                    == ConfirmRunCodeDialog.Accepted:
+                return ACTION_CANCELLED
         if self._jupyter_console is None:
             return 'Code execution not supported.'
-
+        self._app._toggle_dock_widget(self._jupyter_console, show=True)
         self._execution_result = None
         self._execution_loop = QEventLoop()
         QTimer.singleShot(30000, self._execution_loop.quit)  # 30 second timeout
@@ -56,7 +111,6 @@ class SigmundAnalystWidget(SigmundWidget):
             console_content = ''
         console_content = '\n'.join(console_content.splitlines()[-100:])
         return f'# Console output (may be truncated):\n\n{console_content}'
-        
     @property
     def _editor(self):
         return self._editor_panel.active_editor()        
