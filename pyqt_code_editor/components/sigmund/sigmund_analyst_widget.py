@@ -102,6 +102,24 @@ class SigmundAnalystWidget(SigmundWidget):
         self._execution_loop = None
         if self._execution_result is None:
             return 'Code execution timed out or failed to return a result.'
+        attachments = []
+        for part in self._execution_result[1].get('parts', []):
+            for mime_type, data in part.get('data', {}).items():
+                print(mime_type)
+                if not mime_type.startswith('image/'):
+                    continue
+                # Generate filename
+                ext = mime_type.split('/')[-1]
+                filename = f"output_{len(attachments)}.{ext}"            
+                attachments.append({
+                    "filename": filename,
+                    "mime_type": mime_type,
+                    "data": data
+                })
+        if attachments:
+            self._attachments = attachments
+        else:
+            self._attachments = None
         return f'''The following code was executed and generated the output shown below:
 <executed_code>
 {code}
@@ -190,3 +208,4 @@ Overview of working directory:
 '''
         self._transient_system_prompt = system_prompt
         super().send_user_message(text, *args, **kwargs)
+        self._attachments = None
