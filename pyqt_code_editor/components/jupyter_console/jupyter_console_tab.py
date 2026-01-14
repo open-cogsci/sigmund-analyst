@@ -15,16 +15,16 @@ logger = logging.getLogger(__name__)
 
 class JupyterConsoleTab(QWidget):
     """Individual tab containing a Jupyter console with its own kernel"""
-    
+
     execution_complete = Signal(str, object)  # Signal for output interception
     workspace_updated = Signal(dict)  # Signal for workspace updates
-    
+
     def __init__(self, kernel_name=None, parent=None):
         super().__init__(parent)
         self.kernel_name = kernel_name or 'python3'
         self.layout = QVBoxLayout(self)
         self.layout.setContentsMargins(*OUTER_CONTENT_MARGINS)
-        
+
         # Dictionary to track pending message results
         self._pending_messages = {}
         # Set of internal message IDs (for workspace queries, etc.)
@@ -32,23 +32,25 @@ class JupyterConsoleTab(QWidget):
         # Set of message IDs where output should be hidden
         self._silent_messages = set()
         # Flag to prevent recursive workspace updates
-        self._updating_workspace = False        
-        
+        self._updating_workspace = False
+        # Dictionary to accumulate outputs per message ID
+        self._accumulated_outputs = {}
+
         # Create Jupyter console widget
         self.jupyter_widget = RichJupyterWidget()
         self.layout.addWidget(self.jupyter_widget)
-        
+
         # Set up kernel - using out-of-process kernel
         self.kernel_manager = QtKernelManager(kernel_name=self.kernel_name)
         self.kernel_manager.start_kernel()
-        
+
         self.kernel_client = self.kernel_manager.client()
         self.kernel_client.start_channels()
-        
+
         # Connect the console to the kernel
         self.jupyter_widget.kernel_manager = self.kernel_manager
         self.jupyter_widget.kernel_client = self.kernel_client
-        
+
         # Set up output capture
         self._setup_output_interception()
         self.jupyter_widget.set_default_style(colors='linux')
@@ -81,10 +83,10 @@ class JupyterConsoleTab(QWidget):
             self.jupyter_widget._control.setStyleSheet(stylesheet)
         if hasattr(self.jupyter_widget, '_page_control'):
             self.jupyter_widget._page_control.setStyleSheet(stylesheet)
-        
+
         # Connect execution_complete to auto-update workspace
         self.execution_complete.connect(self._on_execution_complete)
-    
+
     def _setup_output_interception(self):
         """Set up output interception to capture kernel output"""
         # Save reference to the original handler
@@ -95,17 +97,17 @@ class JupyterConsoleTab(QWidget):
         # Connect our handler first
         self.jupyter_widget.kernel_client.iopub_channel.message_received.connect(
             self._handle_iopub_message)
-    
+
     def _handle_iopub_message(self, msg):
         """Handle messages from the kernel's IOPub channel"""
         msg_type = msg.get('msg_type', '')
         content = msg.get('content', {})
         parent_header = msg.get('parent_header', {})
         msg_id = parent_header.get('msg_id')
-        
+
         # Check if this is a silent execution (output should be hidden)
         is_silent = msg_id in self._silent_messages
-        
+
         # Check if this message is a response to a tracked request
         if msg_id in self._pending_messages:
             # Handle responses for workspace queries
@@ -124,7 +126,7 @@ class JupyterConsoleTab(QWidget):
                     except Exception as e:
                         logger.error(f"Error processing message: {e}")
                         future.set_exception(e)
-                        
+
             # Check if response is complete
             elif msg_type == 'status' and content.get('execution_state') == 'idle':
                 # Message processing is complete
@@ -135,21 +137,25 @@ class JupyterConsoleTab(QWidget):
                         future.set_result({})
                     # Clean up
                     self._cleanup_message_ids(msg_id)
-        
-        # Only emit execution_complete for non-internal messages
+
+        # Only process output for non-internal messages
         if msg_id not in self._internal_messages:
-            # Detect execution completion with status messages
-            if not is_silent and msg_type == 'status' and content.get('execution_state') == 'idle':
-                # This indicates the execution is complete, regardless of output
-                
-                self.execution_complete.emit('', {})            
-            # Capture execution results for regular code execution
+            # Initialize accumulator for this message ID if needed
+            if msg_id and msg_id not in self._accumulated_outputs:
+                self._accumulated_outputs[msg_id] = {
+                    'text_parts': [],
+                    'contents': []
+                }
+            
+            # Accumulate different types of output
             if msg_type == 'execute_result':
                 data = content.get('data', {})
                 text_output = data.get('text/plain', '')
-                self.execution_complete.emit(text_output, content)
-            
-            # Capture stdout/stderr
+                if msg_id:
+                    self._accumulated_outputs[msg_id]['text_parts'].append(text_output)
+                    self._accumulated_outputs[msg_id]['contents'].append(content)
+
+            # Capture stdout/stderr/display_data/errors
             elif msg_type in ('stream', 'display_data', 'error'):
                 if msg_type == 'stream':
                     output = content.get('text', '')
@@ -158,19 +164,44 @@ class JupyterConsoleTab(QWidget):
                 else:  # error
                     output = '\n'.join(content.get('traceback', []))
                 
-                self.execution_complete.emit(output, content)
-        
+                if msg_id:
+                    self._accumulated_outputs[msg_id]['text_parts'].append(output)
+                    self._accumulated_outputs[msg_id]['contents'].append(content)
+            
+            # Detect execution completion - EMIT ACCUMULATED OUTPUT HERE
+            elif not is_silent and msg_type == 'status' and content.get('execution_state') == 'idle':
+                if msg_id and msg_id in self._accumulated_outputs:
+                    # Combine all accumulated outputs
+                    accumulated = self._accumulated_outputs[msg_id]
+                    combined_text = '\n'.join(accumulated['text_parts'])
+                    
+                    # Create a combined content dict with all parts
+                    combined_content = {
+                        'parts': accumulated['contents'],
+                        'msg_id': msg_id
+                    }
+                    
+                    # Emit once with all accumulated output
+                    self.execution_complete.emit(combined_text, combined_content)
+                    
+                    # Clean up accumulated output
+                    del self._accumulated_outputs[msg_id]
+                else:
+                    # No output was captured, emit empty
+                    self.execution_complete.emit('', {})
+
         # IMPORTANT: Only forward non-silent messages to the widget
         if not is_silent or msg_type not in ('execute_result', 'display_data',
                                              'stream', 'error'):
             self._original_iopub_handler(msg)
-    
+
     def _cleanup_message_ids(self, msg_id):
         """Clean up message IDs from tracking sets"""
         self._pending_messages.pop(msg_id, None)
         self._internal_messages.discard(msg_id)
         self._silent_messages.discard(msg_id)
-    
+        self._accumulated_outputs.pop(msg_id, None)
+
     def _on_execution_complete(self, output, content):
         """Automatically update workspace after regular code execution"""
         # Prevent recursive updates
@@ -178,7 +209,7 @@ class JupyterConsoleTab(QWidget):
             return        
         # Use a small delay to ensure the kernel has processed everything
         QTimer.singleShot(100, self.update_workspace)
-    
+
     def update_workspace(self):
         """Trigger a workspace update and emit the signal when complete"""
         if self._updating_workspace:
@@ -187,7 +218,7 @@ class JupyterConsoleTab(QWidget):
         self._updating_workspace = True        
         future = self.get_workspace_async()
         future.add_done_callback(self._on_workspace_update_complete)
-    
+
     def _on_workspace_update_complete(self, future):
         """Handle completion of workspace update"""
         try:
@@ -203,16 +234,16 @@ class JupyterConsoleTab(QWidget):
             self.workspace_updated.emit({})
         finally:
             self._updating_workspace = False
-                
-    
+
+
     def execute_code(self, code):
         """Execute a code snippet in this kernel"""
         return self.jupyter_widget.execute(code)
-    
+
     def execute_silently(self, code, internal=False, hide_output=True):
         """
         Execute code silently without showing it in the console
-        
+
         Args:
             code (str): The code to execute
             internal (bool): If True, marks this as an internal query that 
@@ -226,7 +257,7 @@ class JupyterConsoleTab(QWidget):
             if hide_output:
                 self._silent_messages.add(msg_id)
         return msg_id
-        
+
     def execute_and_return_result(self, code, timeout=5.0):
         """Execute code silently and return the captured output synchronously"""
         future = self.execute_and_get_future(code)
@@ -235,7 +266,7 @@ class JupyterConsoleTab(QWidget):
         except Exception as e:
             logger.error(f"Failed to get result: {e}")
             return None
-            
+
     def execute_and_get_future(self, code):
         """Execute code silently and return a future for the result"""
         future = Future()
@@ -243,15 +274,15 @@ class JupyterConsoleTab(QWidget):
         if not msg_id:
             future.set_result(None)
             return future
-            
+
         self._pending_messages[msg_id] = future
         return future
-    
+
     def get_workspace_async(self):
         """Asynchronously get the variables in the kernel's workspace"""
         # Create a unique variable name for results
         result_var = f"_workspace_data_{uuid.uuid4().hex[:8]}"
-        
+
         # Define the code to execute in the kernel
         code = f"""
 import sys
@@ -270,7 +301,7 @@ for __var_name, __var_value in list(globals().items()):
     __var_type = type(__var_value).__name__
     if __var_type in ('module', 'function', 'type'):
         continue
-    
+
     # Create a preview based on type
     try:
         if __var_type == 'DataMatrix':
@@ -291,7 +322,7 @@ for __var_name, __var_value in list(globals().items()):
         else:
             # For other types, just show the type
             __preview = f"{{__var_type}} object"
-            
+
         {result_var}[__var_name] = {{'type': __var_type, 'preview': __preview}}
     except Exception as e:
         {result_var}[__var_name] = {{'type': __var_type, 'preview': f"<Error: {{str(e)}}>"}};
@@ -300,12 +331,12 @@ for __var_name, __var_value in list(globals().items()):
 print(json.dumps({result_var}))
 """
         return self.execute_and_get_future(code)
-    
+
     def execute_file(self, filepath):
         """Execute a file in this kernel"""
         code = f"%run {filepath}"
         self.execute_code(code)
-    
+
     def change_directory(self, directory):
         """Change the kernel's working directory"""
         if os.path.exists(directory):
@@ -313,7 +344,7 @@ print(json.dumps({result_var}))
             self.execute_silently(code)
             return True
         return False    
-    
+
     def interrupt_kernel(self):
         """Send interrupt (SIGINT) to the kernel"""
         if self.kernel_manager.has_kernel:
@@ -321,7 +352,7 @@ print(json.dumps({result_var}))
             self.kernel_manager.interrupt_kernel()
             return True
         return False
-        
+
     def restart_kernel(self):
         """Restart the kernel"""
         if self.kernel_manager.has_kernel:
@@ -329,7 +360,7 @@ print(json.dumps({result_var}))
             self.jupyter_widget.request_restart_kernel()
             return True
         return False
-    
+
     def shutdown_kernel(self):
         """Shutdown the kernel"""
         self.kernel_client.stop_channels()

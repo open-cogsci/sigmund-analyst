@@ -1,5 +1,4 @@
 import os
-import time
 from sigmund_qtwidget.sigmund_widget import SigmundWidget
 from qtpy.QtCore import QEventLoop, QTimer
 from qtpy.QtWidgets import QMessageBox, QDialog
@@ -69,9 +68,8 @@ class SigmundAnalystWidget(SigmundWidget):
 
     def _handle_execution_result(self, output, result):
         """Slot that handles the code_executed signal."""
-        self._execution_result = (output, result)
+        self._execution_result = output, result
         if self._execution_loop and self._execution_loop.isRunning():
-            time.sleep(0.5)  # Wait for errors to appear
             self._execution_loop.quit()
 
     def run_command_open_file(self, path):
@@ -104,13 +102,16 @@ class SigmundAnalystWidget(SigmundWidget):
         self._execution_loop = None
         if self._execution_result is None:
             return 'Code execution timed out or failed to return a result.'
-        try:
-            console_content = self._jupyter_console.get_current_console().jupyter_widget._control.toPlainText()
-        except Exception as e:
-            return f'Failed to get results from console content: {e}'
-            console_content = ''
-        console_content = '\n'.join(console_content.splitlines()[-100:])
-        return f'# Console output (may be truncated):\n\n{console_content}'
+        return f'''The following code was executed and generated the output shown below:
+<executed_code>
+{code}
+</executed_code>
+
+<output>
+{self._execution_result[0]}
+</output>
+'''
+
     @property
     def _editor(self):
         return self._editor_panel.active_editor()        
