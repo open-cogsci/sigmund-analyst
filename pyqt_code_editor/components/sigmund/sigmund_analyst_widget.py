@@ -1,4 +1,5 @@
 import os
+import time
 from sigmund_qtwidget.sigmund_widget import SigmundWidget
 from qtpy.QtCore import QEventLoop, QTimer
 from qtpy.QtWidgets import QMessageBox, QDialog
@@ -37,6 +38,7 @@ class SigmundAnalystWidget(SigmundWidget):
         # Store execution results
         self._execution_result = None
         self._execution_loop = None
+        self._working_directory = None
 
     def _confirm_action(self, action_type, details):
         """Show a confirmation dialog for the proposed action.
@@ -80,6 +82,7 @@ class SigmundAnalystWidget(SigmundWidget):
                                         QMessageBox.Ok | QMessageBox.Cancel,
                                         QMessageBox.Ok) == QMessageBox.Ok:
                 return ACTION_CANCELLED
+        self._editor_panel._active_editor = None
         try:
             self._editor_panel.open_file(path)
         except Exception as e:
@@ -94,6 +97,9 @@ class SigmundAnalystWidget(SigmundWidget):
         if self._jupyter_console is None:
             return 'Code execution not supported.'
         self._app._toggle_dock_widget(self._jupyter_console, show=True)
+        if self._working_directory is not None:
+            self._jupyter_console.change_directory(self._working_directory)
+            time.sleep(.5)
         self._execution_result = None
         self._execution_loop = QEventLoop()
         QTimer.singleShot(30000, self._execution_loop.quit)  # 30 second timeout
@@ -207,5 +213,6 @@ Overview of working directory:
 ```
 '''
         self._transient_system_prompt = system_prompt
+        self._working_directory = working_directory
         super().send_user_message(text, *args, **kwargs)
         self._attachments = None
