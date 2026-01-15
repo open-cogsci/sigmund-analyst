@@ -1,6 +1,11 @@
-# PyQt Code Editor / Sigmund Analyst
+# Sigmund Analyst (PyQt Code Editor)
 
 Copyright 2025-2026 Sebastiaan Mathôt
+
+- [About](#about)
+- [AI integration](#ai-integration)
+- [Installation](#installation)
+- [License](#license)
 
 
 ## About
@@ -36,7 +41,15 @@ As-you-type code suggestions are provided by Mistral Codestral. To activate Mist
 
 ## Installation
 
-### Linux installer
+
+### Windows
+
+The easiest way to install Sigmund Analys on Windows is to install OpenSesame, which include Sigmund Analyst:
+
+- <https://osdoc.cogsci.nl/download/>
+
+
+### Linux/ Ubuntu
 
 The easiest way to install Sigmund Analyst on Linux is to download and run the installer script. This will create a Virtual Environment, pip install Sigmund Analyst and all dependencies into this environment, and add a Desktop file to your system to easily start Sigmund Analyst. To upgrade, simply run the script again.
 
