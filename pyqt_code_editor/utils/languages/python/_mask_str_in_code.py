@@ -175,7 +175,7 @@ def mask_str_in_code(code: str, mask_char: str = 'X') -> str:
                 masked_parts.append(masked_string)
                 last_end = token.end
             
-    except tokenize.TokenError:
+    except (tokenize.TokenError, IndentationError):
         # Handle incomplete code
         pass
     

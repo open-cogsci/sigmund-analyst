@@ -565,7 +565,6 @@ def _indent_inside_uncloded_list_tuple_set_or_dict(code: str, char_idx: int) -> 
     bracket_line_idx, bracket_col_idx = _line_col_from_idx(code, char_idx)
     # Get the line where the last unclosed parenthesis is
     bracket_line = lines[bracket_line_idx]            
-    bracket_line_indent = get_leading_spaces(bracket_line)
 
     # Check text after bracket on same line
     post_bracket_text_idx = None
