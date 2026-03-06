@@ -104,6 +104,12 @@ def test_utils(assert_pass=True):
                 print('\nFAIL')
                 assert False
         print(f'\n\n{passed}/{total} passed')
+        print('Testing indentation errors')
+        python_utils.python_auto_indent('''
+for x in y:
+        z
+    fails
+''')
     
     
 if __name__ == "__main__":
