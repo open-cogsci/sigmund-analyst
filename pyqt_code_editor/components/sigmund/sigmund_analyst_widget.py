@@ -33,7 +33,9 @@ class SigmundAnalystWidget(SigmundWidget):
         self._editor_panel = editor_panel
         self._transient_settings = {
             'tool_ide_open_file': 'true',
-            'tool_ide_execute_code': 'true'
+            'tool_ide_execute_code': 'true',
+            'tool_ide_inspect_files': 'true',
+            'tool_ide_list_files': 'true'
         }
         # Store execution results
         self._execution_result = None
@@ -89,7 +91,65 @@ class SigmundAnalystWidget(SigmundWidget):
             return f'Failed to open file: {e}'
         return f'Opened file: {path}'
 
-    def run_command_execute_code(self, code, language):
+    def run_command_inspect_files(self, paths, encoding='utf-8'):
+        results = []
+        for path in paths:
+            try:
+                with open(path, 'r', encoding=encoding) as f:
+                    contents = f.read()
+                results.append(f'<file path="{path}">\n{contents}\n</file>')
+            except FileNotFoundError:
+                results.append(f'<file path="{path}" error="File not found" />')
+            except Exception as e:
+                results.append(f'<file path="{path}" error="{e}" />')
+        return '\n\n'.join(results)
+
+    def run_command_list_files(self, path, recursive=False, max_files=250):
+        lines = []
+        try:
+            if recursive:
+                entries = list(os.walk(path))
+            else:
+                entries = sorted(os.scandir(path), key=lambda e: e.name)
+        except FileNotFoundError:
+            return f'Directory not found: {path}'
+        except PermissionError:
+            return f'Permission denied: {path}'
+        except Exception as e:
+            return f'Failed to list files: {e}'
+        truncated = False
+        if recursive:
+            for root, dirs, files in entries:
+                rel_root = os.path.relpath(root, path)
+                prefix = '' if rel_root == '.' else rel_root + os.sep
+                for d in sorted(dirs):
+                    lines.append(f'{prefix}{d}{os.sep}')
+                    if len(lines) >= max_files:
+                        truncated = True
+                        break
+                if truncated:
+                    break
+                for f in sorted(files):
+                    lines.append(f'{prefix}{f}')
+                    if len(lines) >= max_files:
+                        truncated = True
+                        break
+                if truncated:
+                    break
+        else:
+            for entry in entries:
+                lines.append(entry.name + (os.sep if entry.is_dir() else ''))
+                if len(lines) >= max_files:
+                    truncated = True
+                    break
+        if not lines:
+            return f'Directory is empty: {path}'
+        result = '\n'.join(lines)
+        if truncated:
+            result += f'\n(truncated at {max_files} entries)'
+        return result
+
+    def run_command_execute_code(self, code, language='python'):
         if settings.sigmund_review_actions:
             if not ConfirmRunCodeDialog(self, code, language).exec() \
                     == ConfirmRunCodeDialog.Accepted:
@@ -139,7 +199,7 @@ class SigmundAnalystWidget(SigmundWidget):
     @property
     def _editor(self):
         return self._editor_panel.active_editor()        
-        
+
     def send_user_message(self, text, *args, **kwargs):
         current_path = self._editor.code_editor_file_path
         # If the editor is not linked to a file, simply use the working 
