@@ -5,8 +5,11 @@ from qtpy.QtGui import (
     QTextCursor, QKeySequence, QTextDocument
 )
 from qtpy.QtCore import Qt
+import logging
 from .. import settings
 from ..widgets.search_replace_frame import SearchReplaceFrame
+logger = logging.getLogger(__name__)
+
 
 class SearchReplaceHighlighter(QSyntaxHighlighter):
     """
@@ -390,7 +393,11 @@ class SearchReplace:
         text_before = text[:cursor_pos]
 
         # Apply replacement to full text
-        new_text, num_replacements = compiled.subn(replacement, text)
+        try:
+            new_text, num_replacements = compiled.subn(replacement, text)
+        except re.error as e:
+            logging.error(f"Regex error during replacement: {e}")
+            return
 
         # Apply replacement to just the before portion to calculate position change
         new_text_before, _ = compiled.subn(replacement, text_before)
