@@ -42,6 +42,14 @@ class SigmundAnalystWidget(SigmundWidget):
         self._execution_loop = None
         self._working_directory = None
 
+    def _resolve_path(self, path):
+        """Resolve a path relative to the current working directory.
+        Absolute paths are returned unchanged.
+        """
+        if self._working_directory is not None and not os.path.isabs(path):
+            return os.path.join(self._working_directory, path)
+        return path
+
     def _confirm_action(self, action_type, details):
         """Show a confirmation dialog for the proposed action.
 
@@ -77,6 +85,7 @@ class SigmundAnalystWidget(SigmundWidget):
             self._execution_loop.quit()
 
     def run_command_open_file(self, path):
+        path = self._resolve_path(path)
         if settings.sigmund_review_actions:
             if not QMessageBox.question(self, 
                                         "Confirm open file",
@@ -94,6 +103,7 @@ class SigmundAnalystWidget(SigmundWidget):
     def run_command_inspect_files(self, paths, encoding='utf-8'):
         results = []
         for path in paths:
+            path = self._resolve_path(path)
             try:
                 with open(path, 'r', encoding=encoding) as f:
                     contents = f.read()
@@ -105,6 +115,7 @@ class SigmundAnalystWidget(SigmundWidget):
         return '\n\n'.join(results)
 
     def run_command_list_files(self, path, recursive=False, max_files=250):
+        path = self._resolve_path(path)
         lines = []
         try:
             if recursive:
@@ -262,6 +273,8 @@ class SigmundAnalystWidget(SigmundWidget):
             working_directory_contents = f"(Could not read directory contents: {str(e)})"
 
         system_prompt = f'''## Working directory
+        
+IMPORTANT: Do NOT call inspect_files() with {current_path}, because it is already in the workspace.
 
 The workspace corresponds to the following file: {current_path}
 The working directory is: {working_directory}
