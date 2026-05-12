@@ -1,4 +1,5 @@
 import os
+import subprocess
 import time
 from sigmund_qtwidget.sigmund_widget import SigmundWidget
 from qtpy.QtCore import QEventLoop, QTimer
@@ -35,7 +36,9 @@ class SigmundAnalystWidget(SigmundWidget):
             'tool_ide_open_file': 'true',
             'tool_ide_execute_code': 'true',
             'tool_ide_inspect_files': 'true',
-            'tool_ide_list_files': 'true'
+            'tool_ide_list_files': 'true',
+            'tool_ide_write_file': 'true',
+            'tool_ide_execute_shell_command': 'true'
         }
         # Store execution results
         self._execution_result = None
@@ -207,6 +210,57 @@ class SigmundAnalystWidget(SigmundWidget):
 </output>
 '''
 
+    def run_command_write_file(self, path, content, encoding='utf-8'):
+        path = self._resolve_path(path)
+        language = os.path.splitext(path)[1].lstrip('.') or 'text'
+        if settings.sigmund_review_actions:
+            if not ConfirmRunCodeDialog(self, content, language).exec() \
+                    == ConfirmRunCodeDialog.Accepted:
+                return ACTION_CANCELLED
+        try:
+            dir_name = os.path.dirname(path)
+            if dir_name:
+                os.makedirs(dir_name, exist_ok=True)
+            with open(path, 'w', encoding=encoding) as f:
+                f.write(content)
+        except Exception as e:
+            return f'Failed to write file: {e}'
+        return f'Wrote file: {path}'
+
+    def run_command_execute_shell_command(self, shell_command, timeout=30,
+                                          working_directory=None):
+        if settings.sigmund_review_actions:
+            if not ConfirmRunCodeDialog(self, shell_command, 'shell').exec() \
+                    == ConfirmRunCodeDialog.Accepted:
+                return ACTION_CANCELLED
+        try:
+            result = subprocess.run(
+                shell_command,
+                shell=True,
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+                cwd=working_directory if working_directory else self._working_directory
+            )
+            output = result.stdout
+            if result.stderr:
+                output += f'\nSTDERR:\n{result.stderr}'
+            if not output.strip():
+                output = '(no output)'
+        except subprocess.TimeoutExpired:
+            return f'Shell command timed out after {timeout} seconds.'
+        except Exception as e:
+            return f'Failed to execute shell command: {e}'
+        return f'''The following shell command was executed:
+<executed_command>
+{shell_command}
+</executed_command>
+
+<output>
+{output}
+</output>
+'''
+
     @property
     def _editor(self):
         return self._editor_panel.active_editor()        
@@ -273,7 +327,7 @@ class SigmundAnalystWidget(SigmundWidget):
             working_directory_contents = f"(Could not read directory contents: {str(e)})"
 
         system_prompt = f'''## Working directory
-        
+
 IMPORTANT: Do NOT call inspect_files() with {current_path}, because it is already in the workspace.
 
 The workspace corresponds to the following file: {current_path}
