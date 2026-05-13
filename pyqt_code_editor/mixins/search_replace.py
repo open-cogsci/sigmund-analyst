@@ -65,27 +65,39 @@ class SearchReplaceHighlighter(QSyntaxHighlighter):
         # Find all matches in the entire document
         self._matches = []
         full_text = self.document().toPlainText()
-        for match in regex.finditer(full_text):
-            start = match.start()
-            end = match.end()
 
-            # Convert character positions to block/position
-            block = self.document().findBlock(start)
+        # Qt uses UTF-16 internally, while Python's re works on Unicode code
+        # points. Characters outside the Basic Multilingual Plane (e.g. most
+        # emojis, ord > 0xFFFF) are a single Python code point but take up
+        # TWO UTF-16 code units (a surrogate pair). This mismatch causes
+        # highlight offsets to be wrong whenever such a character appears
+        # before a match. We therefore precompute a lookup table that maps
+        # each Python string index to its corresponding UTF-16 offset.
+        utf16_pos = [0] * (len(full_text) + 1)
+        for i, ch in enumerate(full_text):
+            utf16_pos[i + 1] = utf16_pos[i] + (2 if ord(ch) > 0xFFFF else 1)
+
+        for match in regex.finditer(full_text):
+            utf16_start = utf16_pos[match.start()]
+            utf16_end   = utf16_pos[match.end()]
+
+            # Convert UTF-16 positions to block/position
+            block = self.document().findBlock(utf16_start)
             block_number = block.blockNumber()
             block_start = block.position()
             block_end = block_start + block.length() - 1
 
             # Handle matches that span multiple blocks
-            while start <= block_end and end > block_start:
-                match_start_in_block = max(start - block_start, 0)
-                match_end_in_block = min(end - block_start, block.length() - 1)
+            while utf16_start <= block_end and utf16_end > block_start:
+                match_start_in_block = max(utf16_start - block_start, 0)
+                match_end_in_block = min(utf16_end - block_start, block.length() - 1)
                 match_length = match_end_in_block - match_start_in_block
 
                 if match_length > 0:
                     self._matches.append((block_number, match_start_in_block, match_length))
 
                 # Move to next block if match spans multiple blocks
-                if end > block_end:
+                if utf16_end > block_end:
                     block = block.next()
                     if not block.isValid():
                         break
@@ -103,7 +115,6 @@ class SearchReplaceHighlighter(QSyntaxHighlighter):
         for match_block, start, length in self._matches:
             if match_block == block_number:
                 self.setFormat(start, length, self.highlight_format)
-
 
 class SearchReplace:
     """
@@ -195,6 +206,7 @@ class SearchReplace:
             self._searchFrame.showSearchReplace()
         self._searchFrame.setVisible(True)
         self._searchFrame.findEdit.setFocus()
+        self._searchFrame.findEdit.selectAll()
         self.updateSearchPosition()
         
         # Swap out original highlighter for the search highlighter
