@@ -58,8 +58,3 @@ class SigmundAnalystChatWidget(ChatWidget):
                 return
         self._review_warning_label.setVisible(not review)
         settings.sigmund_review_actions = review
-
-    def append_message(self, msg_type, text, scroll=True):
-        if msg_type == 'ai' and '(Suggesting IDE action)' in text:
-            text = f'⚙️ Sigmund is working …\n\n{text}'
-        self._chat_browser.append_message(msg_type, text, scroll)
