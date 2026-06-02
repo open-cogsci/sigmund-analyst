@@ -150,34 +150,39 @@ class SearchReplace:
             highlighter.setDocument(self.document())
     
     def setupSearchReplace(self):
-        """
-        Call this once in your QPlainTextEdit subclass's __init__ 
-        """
         # Create the search/replace frame
         self._searchFrame = SearchReplaceFrame(self)
         self._searchFrame.setVisible(False)
-        
+
         # Connect signals
         self._searchFrame.findNextRequested.connect(self.findNext)
         self._searchFrame.findPrevRequested.connect(self.findPrev)
         self._searchFrame.replaceOneRequested.connect(self.replaceOne)
         self._searchFrame.replaceAllRequested.connect(self.replaceAll)
-        
+
         # Whenever user changes the find text or toggles checkboxes, re-highlight
         self._searchFrame.findEdit.textChanged.connect(self.updateHighlighter)
         self._searchFrame.caseBox.toggled.connect(self.updateHighlighter)
         self._searchFrame.regexBox.toggled.connect(self.updateHighlighter)
         self._searchFrame.wholeWordBox.toggled.connect(self.updateHighlighter)
-        
-        # Shortcuts
-        findShortcut = QShortcut(QKeySequence.Find, self)
+
+        # Shortcuts: use platform bindings if available, otherwise fall back
+        find_bindings = QKeySequence.keyBindings(QKeySequence.StandardKey.Find)
+        if not find_bindings:
+            find_bindings = [QKeySequence("Ctrl+F")]
+
+        replace_bindings = QKeySequence.keyBindings(QKeySequence.StandardKey.Replace)
+        if not replace_bindings:
+            replace_bindings = [QKeySequence("Ctrl+H")]
+
+        findShortcut = QShortcut(find_bindings[0], self)
         findShortcut.setContext(Qt.WidgetWithChildrenShortcut)
         findShortcut.activated.connect(self.showSearchOnly)
-        
-        replShortcut = QShortcut(QKeySequence.Replace, self)
+
+        replShortcut = QShortcut(replace_bindings[0], self)
         replShortcut.setContext(Qt.WidgetWithChildrenShortcut)
         replShortcut.activated.connect(self.showSearchReplace)
-        
+
         # Hide on Escape if wanted
         self.escapeAction = QAction(self)
         self.escapeShortcut = QShortcut(QKeySequence.Cancel, self)
