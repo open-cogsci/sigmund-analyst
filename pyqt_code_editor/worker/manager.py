@@ -10,6 +10,33 @@ _workers = {}  # pid -> {"process", "request_queue", "result_queue", "is_free"}
 suspended = False
 
 
+def _close_worker_queues(w: dict):
+    """Explicitly close a worker's queues to release file descriptors."""
+    for q in (w["request_queue"], w["result_queue"]):
+        try:
+            q.close()
+            q.join_thread()
+        except Exception as e:
+            logger.warning(f"Error closing queue: {e}")
+
+
+def _cleanup_dead_workers():
+    """
+    Find and remove any worker processes that have died unexpectedly,
+    closing their queues to release file descriptors.
+    """
+    dead_pids = [pid for pid, w in _workers.items()
+                 if not w["process"].is_alive()]
+    for pid in dead_pids:
+        w = _workers.pop(pid)
+        logger.info(f"Cleaning up dead worker {pid}")
+        _close_worker_queues(w)
+        try:
+            w["process"].join(timeout=1)
+        except Exception as e:
+            logger.warning(f"Error joining dead worker {pid}: {e}")
+
+
 def send_worker_request(**data) -> (Queue, int):
     """
     Send a request to a worker process. If a free worker is available,
@@ -17,7 +44,7 @@ def send_worker_request(**data) -> (Queue, int):
 
     The caller can poll the result_queue for responses, and once done,
     call mark_worker_as_free(pid) to release this worker for future use.
-    
+
     If workers are suspended, return (None, None).
     """
     if suspended:
@@ -50,39 +77,48 @@ def send_worker_request(**data) -> (Queue, int):
     settings_action = {'action': 'set_settings',
                        'settings': {name: value for name, value in settings}}
     request_queue.put(settings_action)
-    # 3. Send the request, return the new worker’s result queue and pid.
+    # 3. Send the request, return the new worker's result queue and pid.
     request_queue.put(data)
     return result_queue, pid
 
 def mark_worker_as_free(pid: int):
     """
     Mark a previously-used worker process (identified by pid)
-    as free for reuse.
+    as free for reuse. If the worker has died, clean it up instead.
     """
     w = _workers.get(pid)
-    if w and w["process"].is_alive():
+    if w is None:
+        return
+    if w["process"].is_alive():
         w["is_free"] = True
         logger.info(f"Marking worker {pid} as free")
     else:
-        logger.info(f"Attempted to free worker {pid}, but it is not alive or not found.")
-        
+        # The worker died while handling a request; clean up its resources
+        logger.info(f"Worker {pid} has died; cleaning up.")
+        _workers.pop(pid)
+        _close_worker_queues(w)
+        w["process"].join(timeout=1)
+
 def check_worker_alive(pid: int) -> bool:
     w = _workers.get(pid)
     return w and w["process"].is_alive()
 
 def stop_unused_workers(max_free: int = 1, force: bool = False):
     """
-    Stop free worker processes until there is at most 'max_free' free processes left.
-    This keeps us from accumulating too many idle worker processes.
+    Stop free worker processes until there is at most 'max_free' free processes
+    left. This keeps us from accumulating too many idle worker processes. Also
+    prunes any workers that have died unexpectedly.
     """
     global _last_stop_unused_time
-    if force or time.time() - _last_stop_unused_time < STOP_UNUSED_INTERVAL:
+    if not force and time.time() - _last_stop_unused_time < STOP_UNUSED_INTERVAL:
         return
     _last_stop_unused_time = time.time()
+    # Prune dead workers first, so they don't count as free workers below
+    _cleanup_dead_workers()
     # Gather a list of free worker PIDs
     free_pids = [pid for pid, w in _workers.items() if w["is_free"] and w["process"].is_alive()]
     logger.info(f"stop_unused_workers called: max_free={max_free}, found {len(free_pids)} free workers")
-    
+
     # Determine how many we need to stop
     to_stop = len(free_pids) - max_free
     if to_stop <= 0:
@@ -92,13 +128,13 @@ def stop_unused_workers(max_free: int = 1, force: bool = False):
     # Stop some free workers until we have exactly max_free left
     while to_stop > 0 and free_pids:
         pid = free_pids.pop()
-        w = _workers[pid]
+        w = _workers.pop(pid)
         logger.info(f"Stopping free worker {pid} because we have too many.")
         w["request_queue"].put({"action": "quit"})
         w["process"].join()
-        del _workers[pid]
+        _close_worker_queues(w)
         to_stop -= 1
-    
+
     logger.info("Finished stopping unused workers.")
 
 def stop_all_workers():
@@ -111,6 +147,7 @@ def stop_all_workers():
             logger.info(f"Stopping worker {pid}.")
             w["request_queue"].put({"action": "quit"})
             w["process"].join()
+        _close_worker_queues(w)
         del _workers[pid]
     logger.info("All workers stopped.")
 
@@ -121,8 +158,8 @@ def update_setting(name, value):
     for pid, w in _workers.items():
         if w["process"].is_alive():
             w["request_queue"].put(settings_action)            
-            
-            
+
+
 def suspend():
     """Stops all worker processes and ignores all requests until resume() is 
     called.
@@ -131,13 +168,13 @@ def suspend():
     suspended = True
     logger.info("Suspending worker processes...")
     stop_all_workers()
-    
-    
+
+
 def resume():
     """Resumes accepting requests."""
     global suspended
     suspended = False
     logger.info("Resuming worker processes...")
 
-            
+
 settings.setting_changed.connect(update_setting)
