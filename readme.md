@@ -51,10 +51,12 @@ The easiest way to install Sigmund Analys on Windows is to install OpenSesame, w
 
 ### Linux/ Ubuntu
 
-The easiest way to install Sigmund Analyst on Linux is to download and run the installer script. This will create a Virtual Environment, pip install Sigmund Analyst and all dependencies into this environment, and add a Desktop file to your system to easily start Sigmund Analyst. To upgrade, simply run the script again.
+The easiest way to install Sigmund Analyst on Linux is to download and run the installer script. This will create a Virtual Environment, pip install Sigmund Analyst and all dependencies into this environment, and add a Desktop file to your system to easily start Sigmund Analyst. To upgrade, simply run the script again. (This is actually the OpenSesame installation script, which is bundled with Sigmund Analyst.)
+
+Currently, the Linux installer is tested on Ubuntu 26.04.
 
 ```
-bash <(curl -L https://raw.githubusercontent.com/open-cogsci/pyqt_code_editor/refs/heads/master/install_sigmund_analyst.sh)
+bash <(curl -L https://github.com/open-cogsci/OpenSesame/raw/refs/heads/4.1/linux-installer.sh) --install
 ```
 
 
