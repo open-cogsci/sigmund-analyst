@@ -457,22 +457,11 @@ class SigmundAnalyst(QMainWindow):
         dlg.exec_()
             
             
-def handle_output(text, content):
-    print('***')
-    print(text)
-    # print('---')
-    # for part in content['parts']:
-        # print(part)
-    # print(content)
-    print('***')    
-    
-        
 def launch_app():
     app = QApplication(sys.argv)
     settings.set_font_family()
     window = SigmundAnalyst()
     window.show()
-    window._jupyter_console.execution_complete.connect(handle_output)
     window._toggle_dock_widget(window._jupyter_console)
     # window._jupyter_console.execute_code('''
 # from matplotlib import pyplot as plt
