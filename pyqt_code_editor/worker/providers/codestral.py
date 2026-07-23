@@ -14,7 +14,7 @@ def codestral_complete(code: str, cursor_pos: int,
         return []
 
     if client is None:
-        from mistralai import Mistral
+        from mistralai.client import Mistral
         client = Mistral(api_key=settings.codestral_api_key)
 
     if len(code) < settings.codestral_min_context:
