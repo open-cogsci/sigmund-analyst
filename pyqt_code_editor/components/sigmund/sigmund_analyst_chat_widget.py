@@ -34,6 +34,14 @@ class SigmundAnalystChatWidget(ChatWidget):
         self._review_actions_checkbox.stateChanged.connect(
             self._on_review_actions_changed)
         options_layout.addWidget(self._review_actions_checkbox)
+        # 'Link editor (or selected text) to workspace' checkbox
+        self._link_to_workspace_checkbox = QCheckBox(
+            "Link active editor (or selected text) to workspace")
+        self._link_to_workspace_checkbox.setChecked(
+            settings.sigmund_link_to_workspace)
+        self._link_to_workspace_checkbox.stateChanged.connect(
+            self._on_link_to_workspace_changed)
+        options_layout.addWidget(self._link_to_workspace_checkbox)
         # Insert the options container before the input container
         main_layout.insertWidget(main_layout.count(), options_container)
 
@@ -58,3 +66,14 @@ class SigmundAnalystChatWidget(ChatWidget):
                 return
         self._review_warning_label.setVisible(not review)
         settings.sigmund_review_actions = review
+
+    def _on_link_to_workspace_changed(self, state):
+        link_to_workspace = bool(state)
+        sigmund_widget = self.parent()
+        if link_to_workspace:
+            sigmund_widget.set_workspace_manager(
+                sigmund_widget._workspace_manager)
+        else:
+            sigmund_widget.set_workspace_manager(None)
+        settings.sigmund_link_to_workspace = link_to_workspace
+
