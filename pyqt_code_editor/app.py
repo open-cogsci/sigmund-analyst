@@ -463,12 +463,4 @@ def launch_app():
     window = SigmundAnalyst()
     window.show()
     window._toggle_dock_widget(window._jupyter_console)
-    # window._jupyter_console.execute_code('''
-# from matplotlib import pyplot as plt
-# plt.plot([1,2,3,4])
-# plt.show()
-# print(10)
-# # int('x')
-# 11
-# ''')
     sys.exit(app.exec_())
