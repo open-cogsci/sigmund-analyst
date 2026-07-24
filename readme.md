@@ -31,7 +31,7 @@ Features:
 
 ### SigmundAI for collaborative code editing
 
-You can work together with SigmundAI on the currently active document or selected text. To activate SigmundAI integration, simply log into <https://sigmundai.eu> (subscription required). Sigmund Analyst will then automatically connect to SigmundAI when you enable the Sigmund panel in the toolbar.
+You can code together with SigmundAI. This works similarly to (and is an alternative to) apps such as Claude Code, Codex, and Mistral Vibe. To activate SigmundAI integration, simply log into <https://sigmundai.eu> (subscription required). Sigmund Analyst will then automatically connect to SigmundAI when you enable the Sigmund panel in the toolbar.
 
 
 ### Mistral Codestral for as-you-type suggestions
