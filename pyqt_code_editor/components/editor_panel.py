@@ -98,6 +98,9 @@ class EditorPanel(QWidget):
         logger.info(f"active editor = {editor}")
         self._active_editor = editor
         self._active_tab_widget = self._active_editor.parent().parent()
+        current_file = editor.code_editor_file_path
+        if current_file is not None:
+            settings.current_folder = os.path.dirname(current_file)
     
     def open_file(self, path=None, line_number=None):
         if path is not None:

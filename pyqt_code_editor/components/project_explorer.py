@@ -169,6 +169,7 @@ class ProjectExplorer(QDockWidget):
         self._filter_proxy.setSourceModel(self._model)
 
         self._display_root = root_path or QDir.currentPath()
+        settings.current_folder = self._display_root
 
         # Create a container widget and layout, so we can have the treeview + an optional checkbox
         container_widget = QWidget(self)

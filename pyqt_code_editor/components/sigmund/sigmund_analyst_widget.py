@@ -43,15 +43,22 @@ class SigmundAnalystWidget(SigmundWidget):
         # Store execution results
         self._execution_result = None
         self._execution_loop = None
-        self._working_directory = None
+
+    @property
+    def _working_directory(self):
+        """The current working directory, based on the most recently active
+        editor. Falls back to os.getcwd() if no folder is set.
+        """
+        folder = settings.current_folder
+        return folder if folder is not None else os.getcwd()
 
     def _resolve_path(self, path):
         """Resolve a path relative to the current working directory.
         Absolute paths are returned unchanged.
         """
-        if self._working_directory is not None and not os.path.isabs(path):
-            return os.path.join(self._working_directory, path)
-        return path
+        if os.path.isabs(path):
+            return path
+        return os.path.join(self._working_directory, path)
 
     def _confirm_action(self, action_type, details):
         """Show a confirmation dialog for the proposed action.
@@ -171,9 +178,8 @@ class SigmundAnalystWidget(SigmundWidget):
         if self._jupyter_console is None:
             return 'Code execution not supported.'
         self._app._toggle_dock_widget(self._jupyter_console, show=True)
-        if self._working_directory is not None:
-            self._jupyter_console.change_directory(self._working_directory)
-            time.sleep(.5)
+        self._jupyter_console.change_directory(self._working_directory)
+        time.sleep(.5)
         self._execution_result = None
         self._execution_loop = QEventLoop()
         QTimer.singleShot(30000, self._execution_loop.quit)  # 30 second timeout
@@ -267,43 +273,31 @@ class SigmundAnalystWidget(SigmundWidget):
 
     def send_user_message(self, text, *args, **kwargs):
         current_path = self._editor.code_editor_file_path
-        # If the editor is not linked to a file, simply use the working 
-        # directory.
         if current_path is None:
             current_path = '[unsaved file]'
-            working_directory = os.getcwd()
-        else:
-            working_directory = os.path.dirname(current_path)
 
-        # Initialize with default value
-        working_directory_contents = "(No directory contents available)"
+        working_directory = self._working_directory
 
         # Get directory contents with priority to top-level items
         top_level = []
         all_items = []
 
-        # Only wrap file system operations in try-except
         try:
-            # Get top-level items (depth=1)
             top_level = [f for f in os.listdir(working_directory)
                         if os.path.isfile(os.path.join(working_directory, f))
                         or os.path.isdir(os.path.join(working_directory, f))]
 
-            # Then get deeper items if we haven't reached our limit
             remaining_slots = max(0, 20 - len(top_level))
             if remaining_slots > 0:
                 for root, dirs, files in os.walk(working_directory):
-                    # Skip the top level since we already have it
                     if root == working_directory:
                         continue
-                    # Add files first
                     for file in files:
                         if remaining_slots <= 0:
                             break
                         rel_path = os.path.relpath(os.path.join(root, file), working_directory)
                         all_items.append(f".\\{rel_path}")
                         remaining_slots -= 1
-                    # Then add directories if we still have space
                     for dir in dirs:
                         if remaining_slots <= 0:
                             break
@@ -311,7 +305,6 @@ class SigmundAnalystWidget(SigmundWidget):
                         all_items.append(f".\\{rel_path}\\")
                         remaining_slots -= 1
 
-            # Combine top level and deeper items
             working_directory_contents = "\n".join(
                 sorted([f".\\{item}" if os.path.isfile(os.path.join(working_directory, item))
                  else f".\\{item}\\" for item in top_level] +
@@ -340,6 +333,5 @@ Overview of working directory:
 ```
 '''
         self._transient_system_prompt = system_prompt
-        self._working_directory = working_directory
         super().send_user_message(text, *args, **kwargs)
         self._attachments = None
