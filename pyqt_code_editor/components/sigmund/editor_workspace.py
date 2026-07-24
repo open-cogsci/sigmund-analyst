@@ -89,12 +89,15 @@ class EditorWorkspace:
             editor_content = self._normalize_line_breaks(text_cursor.selectedText())
         else:
             editor_content = self._editor.toPlainText()
-        
-        if content in (editor_content, self.strip_content(editor_content)):
-            return False
-        return True
+        # Treat None content as empty
+        if content is None:
+            content = ''
+        # Compare line-by-line, ignoring trailing whitespace on each line
+        content_lines = [line.rstrip() for line in content.splitlines()]
+        editor_lines = [line.rstrip() for line in editor_content.splitlines()]
+        return content_lines != editor_lines
     
     def strip_content(self, content):
         if content is None:
             return ''
-        return content
+        return content.strip()
