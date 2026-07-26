@@ -72,7 +72,7 @@ class SigmundAnalystChatWidget(ChatWidget):
         sigmund_widget = self.parent()
         if link_to_workspace:
             sigmund_widget.set_workspace_manager(
-                sigmund_widget._workspace_manager)
+                sigmund_widget._editor_workspace_manager)
         else:
             sigmund_widget.set_workspace_manager(None)
         settings.sigmund_link_to_workspace = link_to_workspace

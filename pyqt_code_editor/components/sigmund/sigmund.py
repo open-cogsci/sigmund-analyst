@@ -13,10 +13,10 @@ class Sigmund(Dock):
         self.sigmund_widget = SigmundAnalystWidget(
             self, editor_panel)
         self.sigmund_widget.setStyleSheet(f'font-size: {settings.font_size}pt')
-        self.sigmund_widget._workspace_manager = EditorWorkspace(editor_panel)
-        if settings.sigmund_link_to_workspace:
+        self.sigmund_widget._editor_workspace_manager = EditorWorkspace(editor_panel)
+        if settings.sigmund_link_to_workspace:            
             self.sigmund_widget.set_workspace_manager(
-                self.sigmund_widget._workspace_manager)
+                self.sigmund_widget._editor_workspace_manager)
         self.setWidget(self.sigmund_widget)
 
     def setVisible(self, visible):
