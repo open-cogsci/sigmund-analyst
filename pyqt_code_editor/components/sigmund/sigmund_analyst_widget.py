@@ -32,17 +32,9 @@ class SigmundAnalystWidget(SigmundWidget):
             self._jupyter_console.execution_complete.connect(
                 self._handle_execution_result)
         self._editor_panel = editor_panel
-        self._transient_settings = {
-            'tool_ide_open_file': 'true',
-            'tool_ide_execute_code': 'true',
-            'tool_ide_inspect_files': 'true',
-            'tool_ide_list_files': 'true',
-            'tool_ide_write_file': 'true',
-            'tool_ide_execute_shell_command': 'true'
-        }
         # Store execution results
         self._execution_result = None
-        self._execution_loop = None
+        self._execution_loop = None                
 
     @property
     def _working_directory(self):
@@ -319,7 +311,8 @@ class SigmundAnalystWidget(SigmundWidget):
         except OSError as e:
             working_directory_contents = f"(Could not read directory contents: {str(e)})"
 
-        system_prompt = f'''## Working directory
+        if settings.sigmund_link_to_workspace:
+            system_prompt = f'''## Working directory
 
 IMPORTANT: Do NOT call inspect_files() with {current_path}, because it is already in the workspace.
 
@@ -332,6 +325,31 @@ Overview of working directory:
 {working_directory_contents}
 ```
 '''
+        else:
+            system_prompt = f'''## Working directory
+
+The working directory is: {working_directory}
+
+Overview of working directory:
+
+```
+{working_directory_contents}
+```
+'''
+            
         self._transient_system_prompt = system_prompt
+        self._transient_settings = {
+            'tool_ide_execute_code': 'true',
+            'tool_ide_inspect_files': 'true',
+            'tool_ide_list_files': 'true',
+            'tool_ide_write_file': 'true',
+            'tool_ide_execute_shell_command': 'true'
+        }
+        # Only if the editor is exposed throught the workspace does it make 
+        # sense to activate tools that use the workspace
+        if settings.sigmund_link_to_workspace:
+            self._transient_settings['tool_ide_open_file'] = 'true'
+        else:
+            self._transient_settings['tool_update_workspace_content'] = 'false'        
         super().send_user_message(text, *args, **kwargs)
         self._attachments = None
