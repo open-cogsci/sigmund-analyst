@@ -174,7 +174,7 @@ class SigmundAnalystWidget(SigmundWidget):
         time.sleep(.5)
         self._execution_result = None
         self._execution_loop = QEventLoop()
-        QTimer.singleShot(30000, self._execution_loop.quit)  # 30 second timeout
+        QTimer.singleShot(5 * 60000, self._execution_loop.quit)  # 5min timeout
         self._jupyter_console.execute_code(code)
         self._execution_loop.exec_()
         self._execution_loop = None
