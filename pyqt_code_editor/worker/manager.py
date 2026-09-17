@@ -7,6 +7,7 @@ logger = logging.getLogger(__name__)
 STOP_UNUSED_INTERVAL = 10
 _last_stop_unused_time = 0
 _workers = {}  # pid -> {"process", "request_queue", "result_queue", "is_free"}
+_stopping = {}  # pid -> same shape as _workers, but already asked to quit
 suspended = False
 
 
@@ -103,11 +104,45 @@ def check_worker_alive(pid: int) -> bool:
     w = _workers.get(pid)
     return w and w["process"].is_alive()
 
+def reap_stopping_workers():
+    """
+    Finish cleaning up worker processes that were previously asked to quit
+    (via stop_unused_workers()), but only once they have actually
+    terminated. This is non-blocking: we merely check `is_alive()` for each
+    stopping worker, and only `join()` (with a zero timeout, so it returns
+    essentially instantly) processes that have already exited. Workers that
+    haven't exited yet are left in place and will be picked up on a later
+    call.
+
+    This should be called periodically (e.g. from the same timer that calls
+    stop_unused_workers()) so that workers asked to stop are eventually
+    cleaned up and their queues closed.
+    """
+    done_pids = [pid for pid, w in _stopping.items() if not w["process"].is_alive()]
+    for pid in done_pids:
+        w = _stopping.pop(pid)
+        logger.info(f"Reaping stopped worker {pid}.")
+        try:
+            w["process"].join(timeout=0)
+        except Exception as e:
+            logger.warning(f"Error joining stopped worker {pid}: {e}")
+        _close_worker_queues(w)
+
 def stop_unused_workers(max_free: int = 1, force: bool = False):
     """
-    Stop free worker processes until there is at most 'max_free' free processes
-    left. This keeps us from accumulating too many idle worker processes. Also
-    prunes any workers that have died unexpectedly.
+    Request that free worker processes stop until there is at most
+    'max_free' free processes left. This keeps us from accumulating too
+    many idle worker processes. Also prunes any workers that have died
+    unexpectedly.
+
+    Important: this function never blocks waiting for a worker to actually
+    exit. Workers that we decide to stop are sent a "quit" message and
+    moved into an internal `_stopping` bookkeeping dict; they are only
+    joined (and their queues closed) once they have actually terminated,
+    which is handled by reap_stopping_workers(). This matters because
+    joining a process that hasn't exited yet can block for a noticeable
+    amount of time, especially on Windows, and this function is typically
+    called from a periodic timer on the main/GUI thread.
     """
     global _last_stop_unused_time
     if not force and time.time() - _last_stop_unused_time < STOP_UNUSED_INTERVAL:
@@ -125,21 +160,24 @@ def stop_unused_workers(max_free: int = 1, force: bool = False):
         logger.info("No free workers to stop.")
         return
 
-    # Stop some free workers until we have exactly max_free left
+    # Ask some free workers to stop until we have max_free left. We don't
+    # wait for them to exit here; see reap_stopping_workers().
     while to_stop > 0 and free_pids:
         pid = free_pids.pop()
         w = _workers.pop(pid)
-        logger.info(f"Stopping free worker {pid} because we have too many.")
+        logger.info(f"Asking free worker {pid} to stop because we have too many.")
         w["request_queue"].put({"action": "quit"})
-        w["process"].join()
-        _close_worker_queues(w)
+        _stopping[pid] = w
         to_stop -= 1
 
-    logger.info("Finished stopping unused workers.")
+    logger.info("Finished requesting unused workers to stop.")
 
 def stop_all_workers():
     """
-    Cleanly shut down all worker processes.
+    Cleanly shut down all worker processes. Unlike stop_unused_workers(),
+    this function blocks until every worker has actually exited, since it
+    is only used when we need a hard guarantee that no worker processes
+    remain (e.g. on application shutdown or when suspending).
     """
     logger.info(f"Stopping {len(_workers)} worker processes...")
     for pid, w in list(_workers.items()):
@@ -149,6 +187,16 @@ def stop_all_workers():
             w["process"].join()
         _close_worker_queues(w)
         del _workers[pid]
+    # Also finish off any workers that were previously asked to stop (via
+    # stop_unused_workers()) but haven't been reaped yet.
+    for pid, w in list(_stopping.items()):
+        logger.info(f"Joining previously-stopping worker {pid}.")
+        try:
+            w["process"].join()
+        except Exception as e:
+            logger.warning(f"Error joining stopping worker {pid}: {e}")
+        _close_worker_queues(w)
+        del _stopping[pid]
     logger.info("All workers stopped.")
 
 

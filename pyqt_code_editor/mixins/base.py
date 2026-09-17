@@ -146,6 +146,13 @@ class Base:
         # This function periodically prunes worker processes if they are unused.
         for pid in to_remove:
             self._active_requests.pop(pid, None)
+        # Non-blockingly finish cleaning up any workers that were
+        # previously asked to stop, and possibly ask further idle
+        # workers to stop (throttled internally). Neither call blocks
+        # the GUI thread, even on platforms (e.g. Windows) where
+        # joining a worker process can take a noticeable amount of
+        # time.
+        manager.reap_stopping_workers()
         manager.stop_unused_workers()
         
     def set_modified(self, modified):
