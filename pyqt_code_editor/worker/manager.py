@@ -43,6 +43,42 @@ def _cleanup_dead_workers():
         _starting.discard(pid)
 
 
+def _start_new_worker(is_free: bool = False) -> int:
+    """
+    Create and start a single new worker process, send it the current
+    settings, and register it in _workers and _starting.
+
+    `is_free` controls whether the worker is immediately marked as
+    available for reuse (used by start_worker_pool(), which starts idle
+    workers ahead of time) or not (used by send_worker_request(), which
+    immediately queues a real request on it).
+
+    Returns the new worker's pid. Does not check MAX_CONCURRENT_STARTING;
+    callers are responsible for that.
+    """
+    request_queue = Queue()
+    result_queue = Queue()
+    p = Process(target=main_worker_process_function,
+                args=(request_queue, result_queue))
+    p.start()
+    pid = p.pid
+    watchdog.register_subprocess(pid)
+
+    _workers[pid] = {
+        "process": p,
+        "request_queue": request_queue,
+        "result_queue": result_queue,
+        "is_free": is_free,
+    }
+    _starting.add(pid)
+
+    logger.info(f"Created new worker {pid} (is_free={is_free})")
+    settings_action = {'action': 'set_settings',
+                       'settings': {name: value for name, value in settings}}
+    request_queue.put(settings_action)
+    return pid
+
+
 def send_worker_request(**data) -> (Queue, int):
     """
     Send a request to a worker process. If a free worker is available,
@@ -62,10 +98,15 @@ def send_worker_request(**data) -> (Queue, int):
     substantial) process-creation cost on the GUI thread, but we avoid the
     much worse case of several such creations happening back-to-back and
     competing for CPU/disk/antivirus scanning at the same time.
+
+    Note that start_worker_pool() shares the same _starting bookkeeping,
+    so a pool worker that is still booting also counts against this cap.
     """    
     if suspended:
         return None, None
-    # 1. Look for an existing free worker
+    # 1. Look for an existing free worker. This also picks up workers that
+    # were started ahead of time by start_worker_pool(), whether or not
+    # they have finished booting yet.
     for pid, w in list(_workers.items()):
         if w["is_free"] and w["process"].is_alive():
             logger.info(f"Reusing free worker {pid} (of {len(_workers)}) for request {list(data.keys())}")
@@ -76,32 +117,42 @@ def send_worker_request(**data) -> (Queue, int):
     # 2. If no free worker was found, create a new one -- unless too many
     # workers are already in the process of starting up.
     if len(_starting) >= MAX_CONCURRENT_STARTING:
-        logger.info("declining requst, because too many worker(s) already starting.")
+        logger.info(
+            f"Declining to start a new worker for request "
+            f"{list(data.keys())}; {len(_starting)} worker(s) already "
+            "starting."
+        )
         return None, None
 
-    request_queue = Queue()
-    result_queue = Queue()
-    p = Process(target=main_worker_process_function,
-                args=(request_queue, result_queue))
-    p.start()
-    pid = p.pid
-    watchdog.register_subprocess(pid)
+    pid = _start_new_worker(is_free=False)
+    w = _workers[pid]
+    logger.info(f"Sending request {data['action']} to newly created worker {pid}")
+    w["request_queue"].put(data)
+    return w["result_queue"], pid
 
-    _workers[pid] = {
-        "process": p,
-        "request_queue": request_queue,
-        "result_queue": result_queue,
-        "is_free": False,
-    }
-    _starting.add(pid)
+def start_worker_pool():
+    """
+    Proactively start up to MAX_CONCURRENT_STARTING idle worker processes,
+    so that a free (or at least already-booting) worker is more likely to
+    be available by the time the user actually triggers a request -- e.g.
+    right when they start typing.
 
-    logger.info(f"Creating new worker {pid} for request {data['action']}")
-    settings_action = {'action': 'set_settings',
-                       'settings': {name: value for name, value in settings}}
-    request_queue.put(settings_action)
-    # 3. Send the request, return the new worker's result queue and pid.
-    request_queue.put(data)
-    return result_queue, pid
+    Workers started here are tracked in _starting exactly like workers
+    created on-demand by send_worker_request(), and are marked as free
+    immediately, so send_worker_request() will pick them up as soon as
+    they exist -- whether or not they've finished booting yet.
+
+    Intended to be called at strategic moments (e.g. app startup, after
+    resume(), or when a new editor is opened), not from a tight loop: each
+    call may create up to MAX_CONCURRENT_STARTING new processes on top of
+    whatever is already starting.
+    """
+    if suspended:
+        logger.info("Not starting worker pool because workers are suspended.")
+        return
+    for _ in range(MAX_CONCURRENT_STARTING):
+        _start_new_worker(is_free=True)
+    logger.info(f"Started worker pool of {MAX_CONCURRENT_STARTING} worker(s).")
 
 def mark_worker_as_free(pid: int):
     """
@@ -171,6 +222,11 @@ def stop_unused_workers(max_free: int = 3, force: bool = False):
     joining a process that hasn't exited yet can block for a noticeable
     amount of time, especially on Windows, and this function is typically
     called from a periodic timer on the main/GUI thread.
+
+    Note: if max_free is set lower than MAX_CONCURRENT_STARTING, workers
+    just started by start_worker_pool() may be asked to stop again before
+    they ever get used. The default of 3 leaves headroom above
+    MAX_CONCURRENT_STARTING (2).
     """
     global _last_stop_unused_time
     if not force and time.time() - _last_stop_unused_time < STOP_UNUSED_INTERVAL:
