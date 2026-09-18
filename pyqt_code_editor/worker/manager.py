@@ -5,9 +5,11 @@ from .process import main_worker_process_function
 from .. import watchdog, settings
 logger = logging.getLogger(__name__)
 STOP_UNUSED_INTERVAL = 10
+MAX_CONCURRENT_STARTING = 2
 _last_stop_unused_time = 0
 _workers = {}  # pid -> {"process", "request_queue", "result_queue", "is_free"}
 _stopping = {}  # pid -> same shape as _workers, but already asked to quit
+_starting = set()  # pids of workers created but not yet proven alive-and-useful
 suspended = False
 
 
@@ -36,6 +38,9 @@ def _cleanup_dead_workers():
             w["process"].join(timeout=1)
         except Exception as e:
             logger.warning(f"Error joining dead worker {pid}: {e}")
+        # If this worker died before ever completing its first request, it
+        # was still occupying a "starting" slot; free that slot up.
+        _starting.discard(pid)
 
 
 def send_worker_request(**data) -> (Queue, int):
@@ -47,7 +52,17 @@ def send_worker_request(**data) -> (Queue, int):
     call mark_worker_as_free(pid) to release this worker for future use.
 
     If workers are suspended, return (None, None).
-    """
+
+    We also decline to create a new worker (returning (None, None)) if
+    MAX_CONCURRENT_STARTING workers are already "starting" -- i.e. have
+    been created but haven't yet completed a first successful round-trip
+    (see _starting / mark_worker_as_free()). This caps how many freshly
+    spawned, still-booting worker processes can pile up at once. A single
+    worker creation still pays the normal (and, on Windows, sometimes
+    substantial) process-creation cost on the GUI thread, but we avoid the
+    much worse case of several such creations happening back-to-back and
+    competing for CPU/disk/antivirus scanning at the same time.
+    """    
     if suspended:
         return None, None
     # 1. Look for an existing free worker
@@ -58,7 +73,12 @@ def send_worker_request(**data) -> (Queue, int):
             w["request_queue"].put(data)
             return w["result_queue"], pid
 
-    # 2. If no free worker was found, create a new one.
+    # 2. If no free worker was found, create a new one -- unless too many
+    # workers are already in the process of starting up.
+    if len(_starting) >= MAX_CONCURRENT_STARTING:
+        logger.info("declining requst, because too many worker(s) already starting.")
+        return None, None
+
     request_queue = Queue()
     result_queue = Queue()
     p = Process(target=main_worker_process_function,
@@ -73,6 +93,7 @@ def send_worker_request(**data) -> (Queue, int):
         "result_queue": result_queue,
         "is_free": False,
     }
+    _starting.add(pid)
 
     logger.info(f"Creating new worker {pid} for request {data['action']}")
     settings_action = {'action': 'set_settings',
@@ -86,12 +107,18 @@ def mark_worker_as_free(pid: int):
     """
     Mark a previously-used worker process (identified by pid)
     as free for reuse. If the worker has died, clean it up instead.
+
+    This is also the point at which a worker is considered to have proven
+    itself alive-and-useful (it has completed a request), so we release
+    its "starting" slot here if it still held one -- whether it succeeded
+    or died in the process.
     """
     w = _workers.get(pid)
     if w is None:
         return
     if w["process"].is_alive():
         w["is_free"] = True
+        _starting.discard(pid)
         logger.info(f"Marking worker {pid} as free")
     else:
         # The worker died while handling a request; clean up its resources
@@ -99,6 +126,7 @@ def mark_worker_as_free(pid: int):
         _workers.pop(pid)
         _close_worker_queues(w)
         w["process"].join(timeout=1)
+        _starting.discard(pid)
 
 def check_worker_alive(pid: int) -> bool:
     w = _workers.get(pid)
@@ -128,7 +156,7 @@ def reap_stopping_workers():
             logger.warning(f"Error joining stopped worker {pid}: {e}")
         _close_worker_queues(w)
 
-def stop_unused_workers(max_free: int = 1, force: bool = False):
+def stop_unused_workers(max_free: int = 3, force: bool = False):
     """
     Request that free worker processes stop until there is at most
     'max_free' free processes left. This keeps us from accumulating too
@@ -197,6 +225,8 @@ def stop_all_workers():
             logger.warning(f"Error joining stopping worker {pid}: {e}")
         _close_worker_queues(w)
         del _stopping[pid]
+    # Nothing is left running, so no worker can still be "starting".
+    _starting.clear()
     logger.info("All workers stopped.")
 
 
