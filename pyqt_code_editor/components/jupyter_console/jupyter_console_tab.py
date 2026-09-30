@@ -333,9 +333,20 @@ print(json.dumps({result_var}))
         return self.execute_and_get_future(code)
 
     def execute_file(self, filepath):
-        """Execute a file in this kernel"""
-        code = f"%run {filepath}"
-        self.execute_code(code)
+        """Execute a file in this kernel via the real %run magic."""
+        # $ and {} are expanded (and {expr} evaluated!) by the magic machinery:
+        for ch in ("$", "{", "}"):
+            if ch in filepath:
+                raise ValueError(f"unsupported character {ch!r} in path: {filepath!r}")
+        # backslash sequences the magic's argument parser can't represent:
+        if '\\"' in filepath or "\\\\" in filepath or filepath.endswith("\\"):
+            raise ValueError(f"unsupported backslash sequence in path: {filepath!r}")
+        # don't let %run's option parser read the filename as a flag:
+        if filepath.startswith("-"):
+            filepath = os.path.join(".", filepath)
+        line = '"' + filepath.replace('"', '\\"') + '"'
+        code = f"get_ipython().run_line_magic('run', {line!r})\n"
+        self.jupyter_widget.execute(code)
 
     def change_directory(self, directory):
         """Change the kernel's working directory"""
