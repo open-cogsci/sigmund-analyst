@@ -18,6 +18,7 @@ class SigmundAnalystWidget(SigmundWidget):
     functionality.
     """
     chat_widget_cls = SigmundAnalystChatWidget
+    command_function_prefix = 'ide_'
 
     def __init__(self, parent, editor_panel):
         super().__init__(parent, application='Sigmund Analyst')
