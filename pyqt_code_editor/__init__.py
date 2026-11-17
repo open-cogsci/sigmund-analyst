@@ -2,4 +2,4 @@
 
 from ._settings import settings
 
-__version__ = '1.2.0'
+__version__ = '3.0.0'

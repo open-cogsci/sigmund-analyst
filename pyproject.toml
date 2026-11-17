@@ -21,6 +21,7 @@ dependencies = [
     "pathspec",
     "psutil",
     "pygments",
+    "mcp>=2",
     "qtawesome",
     "qtpy",
     "pyqt6",

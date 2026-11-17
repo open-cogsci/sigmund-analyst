@@ -13,6 +13,7 @@ from .components.find_in_files import FindInFiles
 from .components.jupyter_console import JupyterConsole
 from .components.workspace_explorer import WorkspaceExplorer
 from .components.sigmund import Sigmund
+from .components.sigmund_mcp_relay import SigmundMCPRelay
 from .components.settings_panel import SettingsPanel
 from . import settings, watchdog, __version__
 from pyqt_code_editor.signal_router import signal_router
@@ -60,7 +61,12 @@ class SigmundAnalyst(QMainWindow):
         self._setup_dock_widget(self._jupyter_console, "Jupyter Console")
 
         # Set up Sigmund
-        self._sigmund = Sigmund(parent=self, editor_panel=self._editor_panel)
+        if settings.sigmund_mcp_relay_enabled:
+            sigmund_cls = SigmundMCPRelay
+        else:
+            sigmund_cls = Sigmund
+        self._sigmund = sigmund_cls(parent=self,
+                                    editor_panel=self._editor_panel)
         self.addDockWidget(Qt.RightDockWidgetArea, self._sigmund)
         self._setup_dock_widget(self._sigmund, "Sigmund")
 

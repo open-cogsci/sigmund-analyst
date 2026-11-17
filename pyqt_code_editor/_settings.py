@@ -127,6 +127,12 @@ class Settings(QObject):
     sigmund_token = SettingProperty(None, "Sigmund")
     sigmund_timeout = SettingProperty(1, "Sigmund")  # seconds
     
+    # Sigmund MCP relay
+    sigmund_mcp_relay_url = SettingProperty('https://chat.sigmundai.eu:8080',
+                                            "Sigmund 3")
+    sigmund_mcp_relay_review_actions = SettingProperty(True, "Sigmund 3")
+    sigmund_mcp_relay_enabled = SettingProperty(False, "Sigmund 3")
+    
     # Codestral provider
     codestral_max_context = SettingProperty(2000, "Codestral")
     codestral_min_context = SettingProperty(100, "Codestral")
