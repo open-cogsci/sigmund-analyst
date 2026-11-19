@@ -47,6 +47,13 @@ from mcp.server.mcpserver.exceptions import ToolError
 
 logger = logging.getLogger(__name__)
 
+# Bound on the recursive walks, mirroring the reference
+# ``@modelcontextprotocol/server-filesystem`` (its filesystem.md, "Slow and
+# very large trees"): search_files and directory_tree visit at most this many
+# entries, and a walk that reaches the cap ends with an error rather than a
+# partial result. Excluded entries do not count.
+MAX_VISITED_ENTRIES = 100_000
+
 
 def expand_home(filepath: str) -> str:
     """Expand ~ to home directory"""
@@ -314,17 +321,32 @@ def _is_excluded(relative_path: str, exclude_patterns: list[str]) -> bool:
     below it — including at the top level. Matching is done segment by segment
     rather than with ``fnmatch`` because ``**/name/**`` never matches a
     top-level ``name`` (``fnmatch`` requires a ``/`` before ``name``).
+
+    A pattern with a wildcard is an ``fnmatch`` glob, matched against the
+    relative path as written. ``fnmatch``'s '*' already crosses '/', so a glob
+    matches at any depth. Both shorthands also reach the entries they name:
+    stripping a leading '**/' lets '**/x' match a top-level 'x', and stripping
+    a trailing '/**' lets 'x/**' match 'x' itself — so a glob ending in '/**'
+    also excludes the directory it names, and that directory is then not
+    listed, even as empty, and is never read.
     """
-    segments = relative_path.split(os.sep)
     for pattern in exclude_patterns:
         if '*' in pattern:
             # fnmatch's '*' already crosses '/', so a glob matches at any
-            # depth; stripping a leading '**/' additionally lets '**/x'
-            # match a top-level 'x'.
-            candidates = [pattern[3:]] if pattern.startswith('**/') else [pattern]
+            # depth, independent of the directory structure. Strip the two
+            # shorthands as well so the glob also covers the entries they
+            # name, and not only what follows them: '**/x', 'x/**' and
+            # '**/x/**' should all also match a top-level 'x'.
+            candidates = [pattern]
+            if pattern.startswith('**/'):
+                candidates.append(pattern[3:])
+            if pattern.endswith('/**'):
+                candidates.append(pattern[:-3])
+                if pattern.startswith('**/'):
+                    candidates.append(pattern[3:-3])
             if any(fnmatch.fnmatch(relative_path, c) for c in candidates):
                 return True
-        elif pattern in segments:
+        elif pattern in relative_path.split(os.sep):
             return True
     return False
 
@@ -332,6 +354,11 @@ def _is_excluded(relative_path: str, exclude_patterns: list[str]) -> bool:
 def search_files_impl(root_path: str, pattern: str, allowed_directories: list[str],
                       exclude_patterns: list[str] | None = None) -> list[str]:
     """Recursively search for files matching a pattern
+
+    The walk is bounded the way the reference server bounds it: at most
+    ``MAX_VISITED_ENTRIES`` entries are visited, and a walk that reaches the
+    cap ends with ToolError rather than a partial result. Excluded entries do
+    not count.
 
     Args:
         root_path (str): Root directory to search in
@@ -341,11 +368,15 @@ def search_files_impl(root_path: str, pattern: str, allowed_directories: list[st
 
     Returns:
         list[str]: List of matching file paths
+
+    Raises:
+        ToolError: If the walk visits more than ``MAX_VISITED_ENTRIES`` entries
     """
     if exclude_patterns is None:
         exclude_patterns = []
 
     results = []
+    visited_entries = 0
 
     for root, dirs, files in os.walk(root_path):
         relative_root = os.path.relpath(root, root_path)
@@ -364,7 +395,15 @@ def search_files_impl(root_path: str, pattern: str, allowed_directories: list[st
 
             relative_path = os.path.relpath(full_path, root_path)
             if _is_excluded(relative_path, exclude_patterns):
-                continue
+                continue  # Excluded entries are not counted
+
+            visited_entries += 1
+            if visited_entries > MAX_VISITED_ENTRIES:
+                raise ToolError(
+                    f"File search of {root_path}: stopped after visiting "
+                    f"{MAX_VISITED_ENTRIES} entries. Narrow the path, or name "
+                    "the large folder in exclude_patterns."
+                )
 
             if pattern.lower() in item.lower():
                 results.append(full_path)
@@ -373,8 +412,16 @@ def search_files_impl(root_path: str, pattern: str, allowed_directories: list[st
 
 
 def build_directory_tree(current_path: str, allowed_directories: list[str],
-                         _visited: set[str] | None = None) -> list[TreeEntry]:
+                         exclude_patterns: list[str] | None = None,
+                         depth: int | None = None) -> list[TreeEntry]:
     """Build a recursive tree structure of directories and files
+
+    Bounded the way the reference ``@modelcontextprotocol/server-filesystem``
+    bounds it: the walk visits at most ``MAX_VISITED_ENTRIES`` entries, and once
+    the cap is reached the call fails with ToolError rather than descending
+    into a partial (or enormous) result. Excluded entries do not count, and a
+    depth limit keeps the walk out of deeper levels entirely, so entries below
+    it do not count either.
 
     os.path.isdir follows symlinks, so a link pointing at one of its own
     ancestors would otherwise recurse until the stack is exhausted. Directories
@@ -384,44 +431,91 @@ def build_directory_tree(current_path: str, allowed_directories: list[str],
     Args:
         current_path (str): Current directory to build tree from
         allowed_directories (list[str]): Canonicalized allowed directories
-        _visited (set[str] | None): Resolved directories already expanded,
-            used internally to break symlink cycles
+        exclude_patterns (list[str] | None): Entries to leave out, read the
+            same way as search_files's: a bare name excludes that name at any
+            depth and the subtree below it, and a pattern containing * is a glob
+            matched against the path written relative to the root. A glob ending
+            in /** also excludes the directory it names, so it is not listed,
+            even as empty, and is never read.
+        depth (int | None): How many levels to descend: 1 lists only the
+            entries directly in current_path, 2 adds their children, and so on;
+            None walks the whole tree. Directories at the last level get no
+            children, and their contents are never read.
 
     Returns:
         list[TreeEntry]: List of TreeEntry objects representing directories and files
+
+    Raises:
+        ToolError: If depth is given but is not a positive integer, or the
+            walk visits more than MAX_VISITED_ENTRIES entries
     """
-    valid_path = validate_path(current_path, allowed_directories)
+    if depth is not None and depth < 1:
+        raise ToolError(f"depth must be a positive integer, not {depth}")
 
-    if _visited is None:
-        _visited = set()
-    resolved = normalize_path(os.path.realpath(valid_path))
-    if resolved in _visited:
-        return []
-    _visited.add(resolved)
+    root_path = validate_path(current_path, allowed_directories)
 
-    entries = []
+    # Resolved directories already expanded on this descent, used to break
+    # symlink cycles.
+    visited_directories: set[str] = set()
+    # Entries visited so far, shared across the whole walk.
+    visited_entries = 0
 
-    try:
-        for item in os.listdir(valid_path):
-            item_path = os.path.join(valid_path, item)
+    def walk(directory_path: str, remaining_depth: int | None) -> list[TreeEntry]:
+        nonlocal visited_entries
 
-            if os.path.isdir(item_path):
-                entry = TreeEntry(
-                    name=item,
-                    type='directory',
-                    children=build_directory_tree(item_path, allowed_directories, _visited)
-                )
-            else:
-                entry = TreeEntry(
-                    name=item,
-                    type='file'
-                )
+        valid_path = validate_path(directory_path, allowed_directories)
 
-            entries.append(entry)
-    except PermissionError:
-        pass  # Skip directories we can't read
+        resolved = normalize_path(os.path.realpath(valid_path))
+        if resolved in visited_directories:
+            return []
+        visited_directories.add(resolved)
 
-    return entries
+        entries = []
+
+        try:
+            for item in os.listdir(valid_path):
+                item_path = os.path.join(valid_path, item)
+
+                if exclude_patterns and _is_excluded(
+                        os.path.relpath(item_path, root_path), exclude_patterns):
+                    # Excluded: not listed, not read (not even as empty), and
+                    # not counted toward the entry cap.
+                    continue
+
+                visited_entries += 1
+                if visited_entries > MAX_VISITED_ENTRIES:
+                    raise ToolError(
+                        f"Directory tree of {current_path}: stopped after "
+                        f"visiting {MAX_VISITED_ENTRIES} entries. Narrow the "
+                        "path, or name the large folder in exclude_patterns."
+                    )
+
+                if os.path.isdir(item_path):
+                    if remaining_depth is None or remaining_depth > 1:
+                        children = walk(
+                            item_path,
+                            None if remaining_depth is None else remaining_depth - 1
+                        )
+                    else:
+                        # Last level of a depth-limited walk: directories get
+                        # no 'children', and their contents are never read.
+                        children = None
+                    entries.append(TreeEntry(
+                        name=item,
+                        type='directory',
+                        children=children
+                    ))
+                else:
+                    entries.append(TreeEntry(
+                        name=item,
+                        type='file'
+                    ))
+        except PermissionError:
+            pass  # Skip directories we can't read
+
+        return entries
+
+    return walk(current_path, depth)
 
 
 def make_mcp(allowed_roots: str | os.PathLike | list[str] | list[os.PathLike]) -> MCPServer:
@@ -593,20 +687,42 @@ def make_mcp(allowed_roots: str | os.PathLike | list[str] | list[os.PathLike]) -
         return "\n".join(entries)
 
     @server.tool()
-    def directory_tree(path: str) -> str:
+    def directory_tree(path: str, exclude_patterns: list[str] | None = None,
+                       depth: int | None = None) -> str:
         """Get a recursive tree view of files and directories as a JSON structure.
 
-        Each entry includes 'name', 'type' (file/directory), and 'children' for directories.
-        Files have no children array, while directories always have a children array (which may be empty).
-        The output is formatted with 2-space indentation for readability. Only works within allowed directories.
+        Each entry includes 'name', 'type' ('file' or 'directory'), and, for a
+        directory, 'children' with the entries it holds: an empty array for an
+        empty directory, no children key for files, and no children key for
+        directories at the last level when depth is set (they are not read, so
+        whether they hold anything is not reported).
+
+        The walk is bounded: at most 100,000 entries are visited, and a walk
+        that reaches the cap ends with an error rather than a partial result.
+        Excluded entries do not count, and a depth limit keeps the walk out of
+        deeper levels entirely, so entries below it do not count either. If
+        the cap is hit, narrow the path, or name the large folder in
+        exclude_patterns.
+
+        The output is formatted with 2-space indentation for readability.
+        Only works within allowed directories.
 
         Args:
             path (str): Path to the directory to list
+            exclude_patterns (list[str] | None): Entries to leave out, read the
+                same way as search_files's: a bare name excludes that name at
+                any depth and the subtree below it, and a pattern containing *
+                is a glob matched against the path relative to path as
+                written. A glob ending in /** also excludes the directory it
+                names, so it is not listed, even as empty, and is never read.
+            depth (int, optional): How many levels to descend: 1 lists only the
+                entries directly in path, 2 adds their children, and so on.
+                Omitted, the whole tree is returned.
 
         Returns:
             str: A JSON string representing the directory tree
         """
-        tree_data = build_directory_tree(path, allowed_directories)
+        tree_data = build_directory_tree(path, allowed_directories, exclude_patterns, depth)
 
         def tree_entry_to_dict(entry: TreeEntry) -> dict:
             result = {
@@ -656,7 +772,10 @@ def make_mcp(allowed_roots: str | os.PathLike | list[str] | list[os.PathLike]) -
         Searches through all subdirectories from the starting path. The search
         is case-insensitive and matches partial names. Returns full paths to all
         matching items. Great for finding files when you don't know their exact location.
-        Only searches within allowed directories.
+        Only searches within allowed directories. The walk is bounded: at most
+        100,000 entries are visited, and a walk that reaches the cap ends with
+        an error rather than a partial result (excluded entries do not count).
+        Narrow the path, or name the large folder in exclude_patterns.
 
         Args:
             path (str): Path to start the search from
