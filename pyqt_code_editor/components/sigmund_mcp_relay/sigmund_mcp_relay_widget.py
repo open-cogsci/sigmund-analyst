@@ -1,7 +1,6 @@
 import os
 from qtpy.QtWidgets import QFileDialog
-from mcp_relay.agent import (InProcessServerProvider, RelayWidget,
-                             StdioServerProvider)
+from mcp_relay.agent import InProcessServerProvider, RelayWidget
 import logging
 from .servers.mcp_sigmund_analyst import make_mcp as make_mcp_sigmund_analyst
 from .servers.mcp_filesystem import make_mcp as make_mcp_filesystem
@@ -34,7 +33,6 @@ class SigmundMCPRelayWidget(RelayWidget):
               providers=self.providers())
 
     def providers(self):
-        files_argv = ["npx", "-y", "@modelcontextprotocol/server-filesystem"]
         providers = {
             "sigmund-analyst": InProcessServerProvider(
                 "sigmund-analyst",
@@ -49,12 +47,5 @@ class SigmundMCPRelayWidget(RelayWidget):
                 display_name="Access files and folders",
                 enabled=False
             )
-            # "files": StdioServerProvider(
-                # "files",
-                # files_argv,
-                # args_provider=pick_fs_root,
-                # display_name="Access files and folders",
-                # enabled=False
-            # )
         }
         return providers
