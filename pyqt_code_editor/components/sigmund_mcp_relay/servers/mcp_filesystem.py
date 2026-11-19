@@ -4,37 +4,12 @@ This is the in-process counterpart of the classic STDio
 ``@modelcontextprotocol/server-filesystem``: the same tools, but running
 inside the IDE process on in-memory streams (one instance per relay
 session) instead of as an ``npx`` subprocess.
-
-Wire it into ``sigmund_mcp_relay_widget.py`` with::
-
-    from mcp_relay.agent import InProcessServerProvider
-    from .servers.mcp_filesystem import make_mcp
-
-    InProcessServerProvider(
-        "files",
-        make_mcp,                      # called once per session as make_mcp(root)
-        args_provider=pick_fs_root,    # returns the allowed root folder (or a list of them)
-        display_name="Access files and folders",
-        enabled=False,
-    )
-
-``make_mcp`` receives the value returned by ``args_provider`` (a single
-path or a list of paths), canonicalizes and validates it, and returns a
-fresh ``MCPServer`` whose tools are closures over that session's allowed
-directories -- so concurrent sessions with different roots never
-interfere.
-
-The tools are plain synchronous functions: the MCP SDK runs sync tools on
-a worker thread (``anyio.to_thread``), so there is no need for async here.
-Anticipated failures (bad path, denied access, missing edit anchor) raise
-``ToolError``, which the SDK surfaces to the remote model as an
-``is_error`` result carrying the message; anything else is a crash and is
-reported generically.
 """
-
 import os
 import json
 import shutil
+import stat
+import tempfile
 from pathlib import Path
 from dataclasses import dataclass
 from datetime import datetime
@@ -211,13 +186,27 @@ def create_unified_diff(original_content: str, new_content: str, filepath: str =
 def apply_file_edits(file_path: str, edits: list[EditOperation], dry_run: bool = False) -> str:
     """Apply edits to a file and return diff
 
+    Anchors that cannot identify exactly one location are refused rather than
+    guessed at: empty or whitespace-only oldText cannot say where a change
+    belongs, and a match on several locations when whitespace is ignored is
+    ambiguous, so both raise ToolError (the latter naming the offending line
+    numbers). If the combined edits leave the content as it was, that is
+    reported and the file is left untouched. Otherwise the new content is
+    written atomically: to a temporary file in the same directory that is
+    then swapped over the target, so a crash mid-write cannot leave a
+    truncated file behind.
+
     Args:
         file_path (str): Path to file to edit
         edits (list[EditOperation]): List of edit operations to apply
         dry_run (bool, optional): Whether to apply edits or not. Defaults to False.
 
     Returns:
-        str: Unified diff string
+        str: Unified diff string, or a message when nothing changed
+
+    Raises:
+        ToolError: If oldText is empty or whitespace-only, cannot be found,
+            or matches more than one location when whitespace is ignored
     """
     with open(file_path, 'r', encoding='utf-8') as f:
         content = normalize_line_endings(f.read())
@@ -227,40 +216,74 @@ def apply_file_edits(file_path: str, edits: list[EditOperation], dry_run: bool =
         normalized_old = normalize_line_endings(edit.old_text)
         normalized_new = normalize_line_endings(edit.new_text)
 
+        # An empty or whitespace-only anchor cannot say where a change
+        # belongs: an exact '' in text is always True (which would insert at
+        # position 0), and a match this short bites on that many blank lines
+        # anywhere in the file. Both are silent corruption, so refuse the
+        # edit instead of guessing.
+        if not normalized_old.strip():
+            raise ToolError(
+                "Could not apply edit: oldText is empty or whitespace-only, so "
+                "it does not say where the change belongs. Provide the lines "
+                "to change, with surrounding context, in oldText."
+            )
+
         if normalized_old in modified_content:
             modified_content = modified_content.replace(normalized_old, normalized_new, 1)
             continue
 
-        # Otherwise, try line-by-line matching with flexibility for whitespace
+        # Otherwise, try line-by-line matching with flexibility for whitespace.
+        # Collect every window that matches before applying any of them, so
+        # that ambiguity can be refused with the actual line numbers rather
+        # than settled by whichever window happened to come first.
         old_lines = normalized_old.split('\n')
         content_lines = modified_content.split('\n')
-        match_found = False
 
-        for i in range(len(content_lines) - len(old_lines) + 1):
-            potential_match = content_lines[i:i + len(old_lines)]
+        match_indices = [
+            i for i in range(len(content_lines) - len(old_lines) + 1)
+            if all(old.strip() == existing.strip()
+                   for old, existing in zip(old_lines, content_lines[i:i + len(old_lines)]))
+        ]
 
-            if all(old.strip() == new.strip() for old, new in zip(old_lines, potential_match)):
-                original_indent = content_lines[i][:len(content_lines[i]) - len(content_lines[i].lstrip())]
-
-                new_lines = normalized_new.split('\n')
-                for j, line in enumerate(new_lines):
-                    if j == 0:
-                        new_lines[j] = original_indent + line.lstrip()
-                    elif j < len(old_lines):
-                        # For subsequent lines, try to preserve relative indentation
-                        old_indent = old_lines[j][:len(old_lines[j]) - len(old_lines[j].lstrip())]
-                        new_indent = line[:len(line) - len(line.lstrip())]
-                        if old_indent and new_indent:
-                            relative_indent = len(new_indent) - len(old_indent)
-                            new_lines[j] = original_indent + ' ' * max(0, relative_indent) + line.lstrip()
-
-                content_lines[i:i + len(old_lines)] = new_lines
-                modified_content = '\n'.join(content_lines)
-                match_found = True
-                break
-
-        if not match_found:
+        if not match_indices:
             raise ToolError(f"Could not find exact match for edit:\n{edit.old_text}")
+
+        if len(match_indices) > 1:
+            # 1-based line numbers, on the content including earlier edits.
+            locations = ', '.join(str(i + 1) for i in match_indices[:3])
+            if len(match_indices) > 3:
+                locations += ', ...'
+            raise ToolError(
+                f"Ambiguous edit: oldText matches {len(match_indices)} locations "
+                f"(starting at lines {locations}) when whitespace is ignored, so "
+                "the edit cannot be applied safely. Add surrounding context lines "
+                "to oldText to make the match unique, or copy the text byte-for-byte."
+            )
+
+        i = match_indices[0]
+        original_indent = content_lines[i][:len(content_lines[i]) - len(content_lines[i].lstrip())]
+
+        new_lines = normalized_new.split('\n')
+        for j, line in enumerate(new_lines):
+            if j == 0:
+                new_lines[j] = original_indent + line.lstrip()
+            elif j < len(old_lines):
+                # For subsequent lines, try to preserve relative indentation
+                old_indent = old_lines[j][:len(old_lines[j]) - len(old_lines[j].lstrip())]
+                new_indent = line[:len(line) - len(line.lstrip())]
+                if old_indent and new_indent:
+                    relative_indent = len(new_indent) - len(old_indent)
+                    new_lines[j] = original_indent + ' ' * max(0, relative_indent) + line.lstrip()
+
+        content_lines[i:i + len(old_lines)] = new_lines
+        modified_content = '\n'.join(content_lines)
+
+    # Nothing changed: report that instead of writing out an empty diff, and
+    # leave the file alone, so that an identical oldText/newText edit does not
+    # touch the file (or renormalize its line endings) for nothing.
+    if modified_content == content:
+        return ("Every edit in this batch matched, but oldText and newText were "
+                "identical, so the file was left untouched.")
 
     diff = create_unified_diff(content, modified_content, file_path)
 
@@ -270,8 +293,36 @@ def apply_file_edits(file_path: str, edits: list[EditOperation], dry_run: bool =
     formatted_diff = f"{'`' * num_backticks}diff\n{diff}{'`' * num_backticks}\n\n"
 
     if not dry_run:
-        with open(file_path, 'w', encoding='utf-8') as f:
-            f.write(modified_content)
+        # Write atomically, not in place: open(..., 'w') truncates the file
+        # first, so a crash mid-write would leave a truncated file behind.
+        # Instead the new content goes to a temporary file in the same directory,
+        # and os.replace swaps it in in one step: on the same filesystem that
+        # leaves either the intact original or the complete new file, never a
+        # torn half-written state.
+        temp_fd, temp_path = tempfile.mkstemp(
+            dir=os.path.dirname(file_path),
+            prefix=f"{os.path.basename(file_path)}.",
+            suffix='.tmp',
+        )
+        try:
+            with os.fdopen(temp_fd, 'w', encoding='utf-8') as f:
+                f.write(modified_content)
+                f.flush()
+                os.fsync(f.fileno())
+
+            # mkstemp creates the temporary file with mode 0600; carry the
+            # original mode over so swapping the file in does not change
+            # its permissions.
+            os.chmod(temp_path, stat.S_IMODE(os.stat(file_path).st_mode))
+            os.replace(temp_path, file_path)
+        except BaseException:
+            # Always remove the temporary file -- also when cancelled -- so a
+            # failed edit never leaves a stray *.tmp next to the target.
+            try:
+                os.unlink(temp_path)
+            except OSError:
+                pass
+            raise
 
     return formatted_diff
 
@@ -622,8 +673,14 @@ def make_mcp(allowed_roots: str | os.PathLike | list[str] | list[os.PathLike]) -
     def edit_file(path: str, edits: list[dict[str, str]], dry_run: bool = False) -> str:
         """Make line-based edits to a text file.
 
-        Each edit replaces exact line sequences with new content. Returns a git-style diff
-        showing the changes made. Only works within allowed directories.
+        Each edit replaces its oldText with newText: matching is exact first (with line
+        endings normalized), falling back to a match whose lines need only equal each
+        other once whitespace is stripped. An anchor that is empty or whitespace-only,
+        that matches nothing, or that matches more than one location once whitespace is
+        ignored is refused with an error rather than guessed at. Edits apply in order,
+        and the file is rewritten atomically only after every edit in the batch has
+        matched. Returns a git-style diff showing the changes made. Only works within
+        allowed directories.
 
         Args:
             path: Path to the file to edit
