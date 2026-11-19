@@ -25,8 +25,8 @@ from qtpy.QtCore import QObject, QEventLoop, QTimer, QThread, Signal
 from qtpy.QtWidgets import QDialog
 from mcp_relay.agent import MCPServer
 
-from ... import settings
-from ..sigmund.confirm_run_code_dialog import ConfirmRunCodeDialog
+from .... import settings
+from ...sigmund.confirm_run_code_dialog import ConfirmRunCodeDialog
 
 logger = logging.getLogger(__name__)
 
