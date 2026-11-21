@@ -596,6 +596,7 @@ def make_mcp(allowed_roots: str | os.PathLike | list[str] | list[os.PathLike]) -
     logger.info(f"In-process filesystem MCP server, allowed directories: {allowed_directories}")
 
     server = MCPServer("files")
+    server.status_message = ', '.join(allowed_directories)
 
     @server.tool()
     def read_file(path: str) -> str:
