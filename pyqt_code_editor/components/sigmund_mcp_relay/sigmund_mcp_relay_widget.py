@@ -1,5 +1,5 @@
 import os
-from qtpy.QtWidgets import QFileDialog
+from qtpy.QtWidgets import QFileDialog, QMessageBox
 from mcp_relay.agent import InProcessServerProvider, RelayWidget
 import logging
 from .servers.mcp_sigmund_analyst import make_mcp as make_mcp_sigmund_analyst
@@ -31,6 +31,15 @@ class SigmundMCPRelayWidget(RelayWidget):
         super().__init__(parent,
               relay_url=settings.sigmund_mcp_relay_url,
               providers=self.providers())
+        self.switch_to_sigmund_2.connect(self._switch_to_sigmund_2)
+        
+    def _switch_to_sigmund_2(self):
+        settings.sigmund_mcp_relay_enabled = False
+        QMessageBox.information(
+            self,
+            "Restart required",
+            "Please restart the app to switch to Sigmund 2."
+        )        
 
     def providers(self):
         providers = {

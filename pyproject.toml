@@ -26,7 +26,7 @@ dependencies = [
     "qtpy",
     "pyqt6",
     "qtconsole",
-    "sigmund-mcp-relay",
+    "sigmund-mcp-relay>=0.2.0",
     "tree-sitter",
     "tree-sitter-javascript",
     "tree-sitter-json",

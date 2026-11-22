@@ -35,7 +35,16 @@ class SigmundAnalystWidget(SigmundWidget):
         self._editor_panel = editor_panel
         # Store execution results
         self._execution_result = None
-        self._execution_loop = None                
+        self._execution_loop = None           
+        self.switch_to_sigmund_3.connect(self._switch_to_sigmund_3)     
+        
+    def _switch_to_sigmund_3(self):
+        settings.sigmund_mcp_relay_enabled = True
+        QMessageBox.information(
+            self,
+            "Restart required",
+            "Please restart the app to switch to Sigmund 3."
+        )
 
     @property
     def _working_directory(self):
