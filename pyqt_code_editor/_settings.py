@@ -132,6 +132,8 @@ class Settings(QObject):
                                             "Sigmund 3")
     sigmund_mcp_relay_review_actions = SettingProperty(True, "Sigmund 3")
     sigmund_mcp_relay_enabled = SettingProperty(False, "Sigmund 3")
+    sigmund_mcp_jasp_rpc_url = SettingProperty(
+        'http://127.0.0.1:48164/rpc', "Sigmund 3")
     
     # Codestral provider
     codestral_max_context = SettingProperty(2000, "Codestral")

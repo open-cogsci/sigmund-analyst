@@ -4,6 +4,7 @@ from mcp_relay.agent import InProcessServerProvider, RelayWidget
 import logging
 from .servers.mcp_sigmund_analyst import make_mcp as make_mcp_sigmund_analyst
 from .servers.mcp_filesystem import make_mcp as make_mcp_filesystem
+from .servers.mcp_jasp import make_mcp as make_mcp_jasp
 from ... import settings
 logger = logging.getLogger(__name__)
 
@@ -54,6 +55,13 @@ class SigmundMCPRelayWidget(RelayWidget):
                 make_mcp_filesystem,
                 args_provider=pick_fs_root,
                 display_name="Access files and folders",
+                enabled=False
+            ),
+            "jasp": InProcessServerProvider(
+                "jasp",
+                make_mcp_jasp,
+                args_provider=lambda: settings.sigmund_mcp_jasp_rpc_url,
+                display_name="Perform statistics with JASP",
                 enabled=False
             )
         }
